@@ -76,7 +76,7 @@
 /* containing objects i granules in size.  Note that there is a list    */
 /* of size zero objects.                                                */
 #ifndef GC_TINY_FREELISTS
-# if GC_GRANULE_BYTES == 16
+# if GC_GRANULE_BYTES == 16 || GC_GRANULE_BYTES == 32
 #   define GC_TINY_FREELISTS 25
 # else
 #   define GC_TINY_FREELISTS 33 /* Up to and including 256 bytes */

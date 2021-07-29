@@ -856,27 +856,23 @@ EXTERN_C_BEGIN
 #endif
 
 #if CPP_WORDSZ == 64
-#  if defined(__CHERI_PURE_CAPABILITY__) 
-#    if __CHERI_CAPABILITY_WIDTH__ == 128
-#      define WORDS_TO_BYTES(x)   ((x)<<4)
-#      define BYTES_TO_WORDS(x)   ((x)>>4)
-#      define LOGWL               ((word)7)    /* log[2] of CPP_WORDSZ */
-#      define modWORDSZ(n) ((n) & 0x7f)        /* n mod size of word            */
-#      if ALIGNMENT != 16
-#        define UNALIGNED_PTRS
-#      endif
-#    else 
-#      error Unsupported Capability Width
-#    endif 
-#  elif
-#    define WORDS_TO_BYTES(x)   ((x)<<3)
-#    define BYTES_TO_WORDS(x)   ((x)>>3)
-#    define LOGWL               ((word)6)    /* log[2] of CPP_WORDSZ */
-#    define modWORDSZ(n) ((n) & 0x3f)        /* n mod size of word            */
-#    if ALIGNMENT != 8
-#      define UNALIGNED_PTRS
-#    endif
-#  endif
+# define WORDS_TO_BYTES(x)   ((x)<<3)
+# define BYTES_TO_WORDS(x)   ((x)>>3)
+# define LOGWL               ((word)6)    /* log[2] of CPP_WORDSZ */
+# define modWORDSZ(n) ((n) & 0x3f)        /* n mod size of word            */
+# if ALIGNMENT != 8
+#   define UNALIGNED_PTRS
+# endif
+#endif
+
+#if CPP_WORDSZ == 128
+# define WORDS_TO_BYTES(x)   ((x)<<4)
+# define BYTES_TO_WORDS(x)   ((x)>>4)
+# define LOGWL               ((word)7)    /* log[2] of CPP_WORDSZ */
+# define modWORDSZ(n) ((n) & 0x7f)        /* n mod size of word            */
+# if ALIGNMENT != 16
+#   define UNALIGNED_PTRS
+# endif
 #endif
 
 /* The first TINY_FREELISTS free lists correspond to the first  */
@@ -889,7 +885,11 @@ EXTERN_C_BEGIN
 #define TINY_FREELISTS GC_TINY_FREELISTS
 
 #define WORDSZ ((word)CPP_WORDSZ)
-#define SIGNB  ((word)1 << (WORDSZ-1))
+#if defined(__CHERI_PURE_CAPABILITY__)
+# define SIGNB  ((word)1 << (INTEGER_WORDSZ-1))
+#else  /* defined(__CHERI_PURE_CAPABILITY__) */
+# define SIGNB  ((word)1 << (WORDSZ-1))
+#endif /* defined(__CHERI_PURE_CAPABILITY__) */
 #define BYTES_PER_WORD      ((word)(sizeof (word)))
 #define divWORDSZ(n) ((n) >> LOGWL)     /* divide n by size of word */
 
@@ -910,6 +910,18 @@ EXTERN_C_BEGIN
 #   define GRANULES_TO_WORDS(n) ((n)<<1)
 # elif CPP_WORDSZ == 32
 #   define GRANULES_TO_WORDS(n) ((n)<<2)
+# else
+#   define GRANULES_TO_WORDS(n) BYTES_TO_WORDS(GRANULES_TO_BYTES(n))
+# endif
+#elif GRANULE_BYTES == 32
+# define BYTES_TO_GRANULES(n) ((n)>>5)
+# define GRANULES_TO_BYTES(n) ((n)<<5)
+# if CPP_WORDSZ == 128
+#   define GRANULES_TO_WORDS(n) ((n)<<1)
+# elif CPP_WORDSZ == 64
+#   define GRANULES_TO_WORDS(n) ((n)<<2)
+# elif CPP_WORDSZ == 32
+#   define GRANULES_TO_WORDS(n) ((n)<<3)
 # else
 #   define GRANULES_TO_WORDS(n) BYTES_TO_WORDS(GRANULES_TO_BYTES(n))
 # endif
