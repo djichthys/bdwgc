@@ -14,6 +14,7 @@
  */
 
 #include "private/gc_priv.h"
+#include <cheri/cheric.h>
 
 /*
  * This implements:
@@ -318,6 +319,11 @@ void GC_apply_to_all_blocks(void (*fn)(struct hblk *h, word client_data),
         for (j = BOTTOM_SZ-1; j >= 0;) {
             if (!IS_FORWARDING_ADDR_OR_NIL(index_p->index[j])) {
                 if (!HBLK_IS_FREE(index_p->index[j])) {
+		    printf("[%s:%d] | root = %lp (tag-%02x), base=0x%04x, length=0x%04x, end=0x%02x, construct = %08x (0x%04x << %u) + %u) << 0x%02x \n", __FUNCTION__, __LINE__ , 
+		                       index_p, cheri_gettag(index_p), cheri_getbase(index_p), cheri_getlength(index_p),
+		                       cheri_getbase(index_p) +  cheri_getlength(index_p),
+                                       (((index_p->key << LOG_BOTTOM_SZ) + (word)j) << LOG_HBLKSIZE),
+		                       index_p->key, LOG_BOTTOM_SZ , j , LOG_HBLKSIZE); fflush(NULL);
                     (*fn)(((struct hblk *)
                               (((index_p->key << LOG_BOTTOM_SZ) + (word)j)
                                << LOG_HBLKSIZE)),

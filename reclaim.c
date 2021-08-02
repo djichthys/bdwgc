@@ -218,9 +218,12 @@ STATIC ptr_t GC_reclaim_uninit(struct hblk *hbp, hdr *hhdr, word sz,
 #   endif
     p = (word *)(hbp->hb_body);
     plim = (word *)((ptr_t)hbp + HBLKSIZE - sz);
+    printf("[%s:%d] | hbp = %lp (tag=%02x), hbp->arr = %p (tag=%02x)\n", __FUNCTION__ , __LINE__, hbp, cheri_gettag(hbp), hbp->hb_body, cheri_gettag(hbp->hb_body));
+    printf("[%s:%d] | p = %lp (tag=%02x)\n", __FUNCTION__ , __LINE__, p, cheri_gettag(p));
 
     /* go through all words in block */
         while ((word)p <= (word)plim) {
+            printf("[%s:%d] | hhdr = %lp (tag=%02x) , bitno = %u, markbit = %u\n", __FUNCTION__ , __LINE__, hhdr, cheri_gettag(hhdr), bit_no,  mark_bit_from_hdr(hhdr, bit_no));
             if (!mark_bit_from_hdr(hhdr, bit_no)) {
                 n_bytes_found += sz;
                 /* object is available - put on list */
@@ -651,6 +654,7 @@ STATIC void GC_clear_fl_links(void **flp)
 GC_INNER void GC_start_reclaim(GC_bool report_if_found)
 {
     unsigned kind;
+    unsigned int idx = 0 ;
 
 #   if defined(PARALLEL_MARK)
       GC_ASSERT(0 == GC_fl_builder_count);
@@ -668,8 +672,11 @@ GC_INNER void GC_start_reclaim(GC_bool report_if_found)
             void **fop;
             void **lim = &(GC_obj_kinds[kind].ok_freelist[MAXOBJGRANULES+1]);
 
-            for (fop = GC_obj_kinds[kind].ok_freelist;
-                 (word)fop < (word)lim; (*(word **)&fop)++) {
+            //for (fop = GC_obj_kinds[kind].ok_freelist ;
+            //     (word)fop < (word)lim; (*(word **)&fop)++) {
+            for (fop = GC_obj_kinds[kind].ok_freelist, idx=0 ;
+                 (word)fop < (word)lim; fop++, idx++ ) {   
+		 printf("[%s:%d] | kind = %u, idx = %u, fop = %lp\n", __FUNCTION__, __LINE__, kind, idx, fop );
               if (*fop != 0) {
                 if (should_clobber) {
                   GC_clear_fl_links(fop);
@@ -719,8 +726,9 @@ GC_INNER void GC_continue_reclaim(word sz /* granules */, int kind)
 
     if (NULL == rlh)
         return; /* No blocks of this kind.      */
-
+    printf("[%s:%d] | begin - rlh= %lp (tag=%02x), *rlh = %lp (tag=%02x)\n", __FUNCTION__, __LINE__, rlh, cheri_gettag(rlh), *rlh  , cheri_gettag(*rlh));
     for (rlh += sz; (hbp = *rlh) != NULL; ) {
+        printf("[%s:%d] | *rlh = %lp (tag=%02x)\n", __FUNCTION__, __LINE__, *rlh  , cheri_gettag(*rlh));
         hhdr = HDR(hbp);
         *rlh = hhdr -> hb_next;
         GC_reclaim_small_nonempty_block(hbp, hhdr -> hb_sz, FALSE);
