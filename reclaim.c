@@ -21,6 +21,7 @@
 #endif
 
 #include <stdio.h>
+#include <cheri/cheric.h>
 
 GC_INNER signed_word GC_bytes_found = 0;
                         /* Number of bytes of memory reclaimed     */
@@ -395,7 +396,11 @@ STATIC void GC_reclaim_block(struct hblk *hbp, word report_if_found)
     if( sz > MAXOBJBYTES ) {  /* 1 big object */
         if( !mark_bit_from_hdr(hhdr, 0) ) {
             if (report_if_found) {
-              GC_add_leaked((ptr_t)hbp);
+#             if defined(__CHERI_PURE_CAPABILITY__)
+                GC_add_leaked((ptr_t)(hhdr->hb_block));
+#             else
+                GC_add_leaked((ptr_t)hbp);
+#             endif
             } else {
               word blocks;
 
@@ -416,7 +421,11 @@ STATIC void GC_reclaim_block(struct hblk *hbp, word report_if_found)
                 GC_large_allocd_bytes -= blocks * HBLKSIZE;
               }
               GC_bytes_found += sz;
-              GC_freehblk(hbp);
+#             if defined(__CHERI_PURE_CAPABILITY__)
+                GC_freehblk(hhdr->hb_block);
+#             else
+                GC_freehblk(hbp);
+#             endif
             }
         } else {
 #        ifdef ENABLE_DISCLAIM
@@ -447,12 +456,20 @@ STATIC void GC_reclaim_block(struct hblk *hbp, word report_if_found)
         } else if (empty) {
 #       ifdef ENABLE_DISCLAIM
           if ((hhdr -> hb_flags & HAS_DISCLAIM) != 0) {
-            GC_disclaim_and_reclaim_or_free_small_block(hbp);
+#           if defined(__CHERI_PURE_CAPABILITY__)
+              GC_disclaim_and_reclaim_or_free_small_block(hhdr->hb_block);
+#           else
+              GC_disclaim_and_reclaim_or_free_small_block(hbp);
+#           endif
           } else
 #       endif
           /* else */ {
             GC_bytes_found += HBLKSIZE;
+#       if defined(__CHERI_PURE_CAPABILITY__)
+            GC_freehblk(hhdr->hb_block);
+#       else
             GC_freehblk(hbp);
+#       endif
           }
         } else if (GC_find_leak || !GC_block_nearly_full(hhdr, sz)) {
           /* group of smaller objects, enqueue the real work */
@@ -461,7 +478,11 @@ STATIC void GC_reclaim_block(struct hblk *hbp, word report_if_found)
           if (rlh != NULL) {
             rlh += BYTES_TO_GRANULES(sz);
             hhdr -> hb_next = *rlh;
-            *rlh = hbp;
+#           if defined(__CHERI_PURE_CAPABILITY__)
+              *rlh = hhdr -> hb_block;
+#           else
+              *rlh = hbp;
+#           endif
           }
         } /* else not worth salvaging. */
         /* We used to do the nearly_full check later, but we    */
