@@ -151,6 +151,8 @@
       void ** p = (word *)(h -> hb_body);
       void ** lim = (word *)(h + 1);
 
+      printf("[%s:%d] | ptr = %lp(t-%02x)\n", __FUNCTION__ , __LINE__, p , cheri_gettag(p)); fflush(NULL);
+      printf("[%s:%d] | *ptr=%lp(t-%02x)\n", __FUNCTION__ , __LINE__, p[0] , cheri_gettag(p[0])); fflush(NULL);
       p[0] = (word *)ofl;
       p[2] = (word *)p;
       p += 4;

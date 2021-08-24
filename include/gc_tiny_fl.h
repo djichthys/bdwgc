@@ -53,8 +53,8 @@
         || defined(__arch64__) \
         || (defined(__riscv) && __riscv_xlen == 64)
 #  if __CHERI_CAPABILITY_WIDTH__ == 128
-#   define GC_GRANULE_BYTES 32
-#   define GC_GRANULE_WORDS 2
+#   define GC_GRANULE_BYTES 16
+#   define GC_GRANULE_WORDS 1
 #  else /* defined(__CHERI_PURE_CAPABILITY__) */
 #   define GC_GRANULE_BYTES 16
 #   define GC_GRANULE_WORDS 2
