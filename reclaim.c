@@ -159,7 +159,7 @@ GC_INLINE word *GC_clear_block(word *p, word sz, signed_word *count)
       p += 2;
     }
 # else
-    p++; /* Skip link field */
+    p += sizeof(word *); /* Skip link field */
     while ((word)p < (word)q) {
       *p++ = 0;
     }
