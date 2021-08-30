@@ -1705,5 +1705,6 @@ GC_INNER ptr_t GC_allocobj(size_t gran, int kind)
     /* Successful allocation; reset failure count.      */
     GC_fail_count = 0;
 
+    printf("[%s:%d] | ptr = %lp(t-%02x) , next-free-ptr=%lp(t-%02x)\n", __FUNCTION__ , __LINE__,*flh, cheri_gettag(*flh),  GC_obj_kinds[1].ok_freelist[2], cheri_gettag(GC_obj_kinds[1].ok_freelist[2]));
     return (ptr_t)(*flh);
 }

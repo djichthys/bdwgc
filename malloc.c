@@ -315,6 +315,7 @@ GC_API GC_ATTR_MALLOC void * GC_CALL GC_malloc_kind_global(size_t lb, int k)
                                 <= (word)GC_greatest_plausible_heap_addr
                               && (word)obj_link(op)
                                 >= (word)GC_least_plausible_heap_addr));
+                printf("[%s:%d] | op = %lp (t-%02x)\n", __FUNCTION__, __LINE__ , op, cheri_gettag(op)); fflush(NULL);
                 *opp = obj_link(op);
                 obj_link(op) = 0;
             }
@@ -327,7 +328,22 @@ GC_API GC_ATTR_MALLOC void * GC_CALL GC_malloc_kind_global(size_t lb, int k)
 
     /* We make the GC_clear_stack() call a tail one, hoping to get more */
     /* of the stack.                                                    */
+    #if 0 
     return GC_clear_stack(GC_generic_malloc(lb, k));
+    #else 
+    void *da, *db = NULL; 
+    size_t lgd = GC_size_map[lb];
+
+    db = GC_obj_kinds[k].ok_freelist[lgd];
+    printf("[%s:%d] | ptr-fl = %lp (t-%02x), lb=%u, lg=%u, k = %u\n", __FUNCTION__ , __LINE__ , db, cheri_gettag(db),lb,lgd, k);
+
+    da = GC_generic_malloc(lb, k);
+
+    db = GC_obj_kinds[k].ok_freelist[lgd];
+    printf("[%s:%d] | ptr-fl = %lp (t-%02x), lb=%u, lg=%u, k = %u\n", __FUNCTION__ , __LINE__ , db, cheri_gettag(db),lb,lgd, k);
+
+    return GC_clear_stack(da);
+    #endif 
 }
 
 #if defined(THREADS) && !defined(THREAD_LOCAL_ALLOC)
