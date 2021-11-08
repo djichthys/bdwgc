@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <cheriintrin.h>
 
 /* Allocate reclaim list for kind:      */
 /* Return TRUE on success               */
@@ -343,10 +344,28 @@ GC_API GC_ATTR_MALLOC void * GC_CALL GC_malloc_atomic(size_t lb)
     return GC_malloc_kind(lb, PTRFREE);
 }
 
+static void dbg_free_lists(void *alloc_ptr, size_t size)
+{
+    int j=0;
+    void *tmp;
+    printf("[%s:%d] | GC_hblkfreelist -> [", __FUNCTION__, __LINE__);
+    for( j=0 ; j < sizeof(GC_hblkfreelist)/sizeof(void*) ; j++ ) {
+      if( GC_hblkfreelist[j] == 0 ) continue;
+      tmp = GC_hblkfreelist[j];
+      printf("<%u> %lp (%lu hblk) [0x%04x--0x%04x], ", j, GC_hblkfreelist[j]
+                  , (GC_free_bytes[j]/4096) , cheri_base_get(tmp)
+                  , cheri_base_get(tmp) + cheri_length_get(tmp));
+    }
+    printf("]\n"); fflush(NULL);
+}
+
 /* Allocate lb bytes of composite (pointerful) data.    */
 GC_API GC_ATTR_MALLOC void * GC_CALL GC_malloc(size_t lb)
 {
-    return GC_malloc_kind(lb, NORMAL);
+    void *tmp = GC_malloc_kind(lb, NORMAL);
+    dbg_free_lists(tmp, lb);
+    return tmp;
+    //return GC_malloc_kind(lb, NORMAL);
 }
 
 GC_API GC_ATTR_MALLOC void * GC_CALL GC_generic_malloc_uncollectable(
