@@ -354,12 +354,14 @@ typedef struct DBG_SIZES
 static void dbg_free_lists(void *alloc_ptr, size_t size)
 {
     #define DBG_TYPE_NORMAL 1 
-    #define DBG_MEM_SIZE 128
+    #define DBG_MEM_SIZE 32
     size_t j, arr_size = 0, _start = 0, _end = 0, _pstart = 0, _pend = 0 ; 
     int z_idx = -1, p_idx = -1; 
     void *tmp;
     static int init = -1 ;
     static Debug_Sizes dbg_in_use[DBG_MEM_SIZE];
+    static unsigned long long mem_usage = 0; 
+    unsigned long long curr_usage = 0; 
 
 
     printf("[%s:%d] | GC_obj_kinds[1] -> [", __FUNCTION__, __LINE__);
@@ -391,8 +393,14 @@ static void dbg_free_lists(void *alloc_ptr, size_t size)
     }
 
     /* Check if range has been seen before */
-    _pstart = cheri_base_get(alloc_ptr); 
+    #if defined(__CHERI_PURE_CAPABILITY__)
+    _pstart = cheri_base_get(alloc_ptr);
     _pend = _pstart + cheri_length_get(alloc_ptr);
+    #else
+    _pstart = alloc_ptr & (ULONG_MAX << 16);
+    _pend = _pstart + (1 << 16);
+    #endif
+
     for( j=0 ; j < arr_size ; j++ ) {
       if ((dbg_in_use[j].start == 0) && (dbg_in_use[j].end == 0)) {
         if (z_idx == -1) z_idx = j; 
@@ -405,14 +413,18 @@ static void dbg_free_lists(void *alloc_ptr, size_t size)
     }
 
     if (p_idx == -1) {
-      printf("[%s:%d] | Inserting at [%u] 0x%04x--0x%04x\n", __FUNCTION__, __LINE__, z_idx, _pstart, _pend); fflush(NULL);
+      //printf("[%s:%d] | Inserting at [%u] 0x%04x--0x%04x\n", __FUNCTION__, __LINE__, z_idx, _pstart, _pend); fflush(NULL);
       dbg_in_use[z_idx].start = _pstart;
       dbg_in_use[z_idx].end = _pend;
-    } else { 
+    } /* else { 
       printf("[%s:%d] | Found [%u] 0x%04x--0x%04x\n", __FUNCTION__, __LINE__,p_idx,  _pstart, _pend); fflush(NULL);
-    } 
+    } */
+    for( j=0, curr_usage=0 ; j < arr_size ; j++ ) {
+      curr_usage += (dbg_in_use[j].end - dbg_in_use[j].start);
+    }
+    if (curr_usage > mem_usage) mem_usage = curr_usage; 
 
-    printf("[%s:%d] | Debug-in-use -> %u \n[ ", __FUNCTION__, __LINE__ , arr_size);
+    printf("[%s:%d] | Debug-in-use -> (current=0x%04x, high=0x%04x)\n[ ", __FUNCTION__, __LINE__, curr_usage, mem_usage );
     for( j=0 ; j < sizeof(dbg_in_use)/sizeof(Debug_Sizes) ; j++ ) {
       if((j>0) && (j % 8 == 0))
       	printf("\n  ");
