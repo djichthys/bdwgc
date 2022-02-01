@@ -344,10 +344,32 @@ GC_API GC_ATTR_MALLOC void * GC_CALL GC_malloc_atomic(size_t lb)
     return GC_malloc_kind(lb, PTRFREE);
 }
 
+typedef struct DBG_SIZES
+{
+  size_t start; 
+  size_t end; 
+} Debug_Sizes; 
+
+
 static void dbg_free_lists(void *alloc_ptr, size_t size)
 {
-    int j=0;
+    #define DBG_TYPE_NORMAL 1 
+    #define DBG_MEM_SIZE 128
+    size_t j, arr_size = 0, _start = 0, _end = 0, _pstart = 0, _pend = 0 ; 
+    int z_idx = -1, p_idx = -1; 
     void *tmp;
+    static int init = -1 ;
+    static Debug_Sizes dbg_in_use[DBG_MEM_SIZE];
+
+
+    printf("[%s:%d] | GC_obj_kinds[1] -> [", __FUNCTION__, __LINE__);
+    for (j=0 ; j < MAXOBJKINDS ; j++ ) {
+      tmp = GC_obj_kinds[DBG_TYPE_NORMAL].ok_freelist[j]; 
+      if (tmp == NULL) continue; 
+      printf("<%u> %lp [0x%04x--%lp], ", j, tmp, ((unsigned long long)tmp) & ~((1 << 12) - 1) , tmp);
+    }
+    printf("]\n"); fflush(NULL);
+
     printf("[%s:%d] | GC_hblkfreelist -> [", __FUNCTION__, __LINE__);
     for( j=0 ; j < sizeof(GC_hblkfreelist)/sizeof(void*) ; j++ ) {
       if( GC_hblkfreelist[j] == 0 ) continue;
@@ -355,6 +377,46 @@ static void dbg_free_lists(void *alloc_ptr, size_t size)
       printf("<%u> %lp (%lu hblk) [0x%04x--0x%04x], ", j, GC_hblkfreelist[j]
                   , (GC_free_bytes[j]/4096) , cheri_base_get(tmp)
                   , cheri_base_get(tmp) + cheri_length_get(tmp));
+    }
+    printf("]\n"); fflush(NULL);
+
+
+    /* Calculate the size */
+    arr_size =  sizeof(dbg_in_use)/sizeof(Debug_Sizes) ;
+
+    /* Initiailize structure at the beginning */
+    if (init) {
+      memset( (unsigned char *)dbg_in_use , 0, sizeof(dbg_in_use)); 
+      init = 0; 
+    }
+
+    /* Check if range has been seen before */
+    _pstart = cheri_base_get(alloc_ptr); 
+    _pend = _pstart + cheri_length_get(alloc_ptr);
+    for( j=0 ; j < arr_size ; j++ ) {
+      if ((dbg_in_use[j].start == 0) && (dbg_in_use[j].end == 0)) {
+        if (z_idx == -1) z_idx = j; 
+        continue;
+      }
+      if ((_pstart == dbg_in_use[j].start) && (_pend == dbg_in_use[j].end)) { 
+	p_idx = j;
+	break;
+      } 
+    }
+
+    if (p_idx == -1) {
+      printf("[%s:%d] | Inserting at [%u] 0x%04x--0x%04x\n", __FUNCTION__, __LINE__, z_idx, _pstart, _pend); fflush(NULL);
+      dbg_in_use[z_idx].start = _pstart;
+      dbg_in_use[z_idx].end = _pend;
+    } else { 
+      printf("[%s:%d] | Found [%u] 0x%04x--0x%04x\n", __FUNCTION__, __LINE__,p_idx,  _pstart, _pend); fflush(NULL);
+    } 
+
+    printf("[%s:%d] | Debug-in-use -> %u \n[ ", __FUNCTION__, __LINE__ , arr_size);
+    for( j=0 ; j < sizeof(dbg_in_use)/sizeof(Debug_Sizes) ; j++ ) {
+      if((j>0) && (j % 8 == 0))
+      	printf("\n  ");
+      printf("{%04x,%04x}, ", dbg_in_use[j].start, dbg_in_use[j].end);
     }
     printf("]\n"); fflush(NULL);
 }

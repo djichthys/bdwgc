@@ -650,7 +650,7 @@ STATIC void GC_clear_fl_links(void **flp)
 GC_INNER void GC_start_reclaim(GC_bool report_if_found)
 {
     unsigned kind;
-    printf("[%s:%d] | Collection ------ \n\n\n\n", __FUNCTION__, __LINE__);
+    printf("[%s:%d] | Collection\n ------------- \n-------------\n-------------\n-------------\n", __FUNCTION__, __LINE__);
 
 #   if defined(PARALLEL_MARK)
       GC_ASSERT(0 == GC_fl_builder_count);
