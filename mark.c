@@ -826,6 +826,7 @@ GC_INNER mse * GC_mark_from(mse *mark_stack_top, mse *mark_stack,
         for(;;) {
           PREFETCH(limit - PREF_DIST*CACHE_LINE_SIZE);
           GC_ASSERT((word)limit >= (word)current_p);
+	  dbg_gc_loop_count++;
           deferred = *(word *)limit;
           FIXUP_POINTER(deferred);
           limit -= ALIGNMENT;
@@ -836,6 +837,7 @@ GC_INNER mse * GC_mark_from(mse *mark_stack_top, mse *mark_stack,
           if ((word)current_p > (word)limit) goto next_object;
           /* Unroll once, so we don't do too many of the prefetches     */
           /* based on limit.                                            */
+	  dbg_gc_loop_count++;
           deferred = *(word *)limit;
           FIXUP_POINTER(deferred);
           limit -= ALIGNMENT;
