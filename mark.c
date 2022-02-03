@@ -599,6 +599,8 @@ GC_INNER mse * GC_signal_mark_stack_overflow(mse *msp)
     return(msp - GC_MARK_STACK_DISCARDS);
 }
 
+extern unsigned long long dbg_gc_loop_count;
+
 /*
  * Mark objects pointed to by the regions described by
  * mark stack entries between mark_stack and mark_stack_top,
@@ -865,6 +867,7 @@ GC_INNER mse * GC_mark_from(mse *mark_stack_top, mse *mark_stack,
           if ((word)current_p > (word)limit) goto next_object;
         }
         for(;;) {
+	  dbg_gc_loop_count++;
           GC_ASSERT((word)limit >= (word)current_p);
           if (cheri_getaddress(limit) < cheri_getbase(limit)) goto next_object;
 
@@ -908,6 +911,7 @@ GC_INNER mse * GC_mark_from(mse *mark_stack_top, mse *mark_stack,
                         mark_stack_limit, current_p);
         }
         current_p += ALIGNMENT;
+	dbg_gc_loop_count++;
       }
 
 #     ifndef SMALL_CONFIG
