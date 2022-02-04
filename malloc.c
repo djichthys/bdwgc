@@ -378,9 +378,11 @@ static void dbg_free_lists(void *alloc_ptr, size_t size)
     for( j=0 ; j < sizeof(GC_hblkfreelist)/sizeof(void*) ; j++ ) {
       if( GC_hblkfreelist[j] == 0 ) continue;
       tmp = GC_hblkfreelist[j];
+      # if defined(__CHERI_PURE_CAPABILITY__)
       printf("<%u> %lp (%lu hblk) [0x%04x--0x%04x], ", j, GC_hblkfreelist[j]
                   , (GC_free_bytes[j]/4096) , cheri_base_get(tmp)
                   , cheri_base_get(tmp) + cheri_length_get(tmp));
+      # endif 
     }
     printf("]\n"); fflush(NULL);
 
