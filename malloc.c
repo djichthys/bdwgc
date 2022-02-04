@@ -399,7 +399,7 @@ static void dbg_free_lists(void *alloc_ptr, size_t size)
     _pstart = cheri_base_get(alloc_ptr);
     _pend = _pstart + cheri_length_get(alloc_ptr);
     #else
-    _pstart = alloc_ptr & (ULONG_MAX << 16);
+    _pstart = (unsigned long)alloc_ptr & (ULONG_MAX << 16);
     _pend = _pstart + (1 << 16);
     #endif
 
