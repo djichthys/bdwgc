@@ -18,7 +18,9 @@
 
 #include <stdio.h>
 #include <string.h>
+# if defined(__CHERI_PURE_CAPABILITY__)
 #include <cheriintrin.h>
+# endif 
 
 /* Allocate reclaim list for kind:      */
 /* Return TRUE on success               */
