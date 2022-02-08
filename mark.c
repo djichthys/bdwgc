@@ -600,6 +600,8 @@ GC_INNER mse * GC_signal_mark_stack_overflow(mse *msp)
 }
 
 extern unsigned long long dbg_gc_loop_count;
+extern ptr_t dbg_greatest_ha; 
+extern ptr_t dbg_least_ha; 
 
 /*
  * Mark objects pointed to by the regions described by
@@ -631,6 +633,10 @@ GC_INNER mse * GC_mark_from(mse *mark_stack_top, mse *mark_stack,
   ptr_t greatest_ha = (ptr_t)GC_greatest_plausible_heap_addr;
   ptr_t least_ha = (ptr_t)GC_least_plausible_heap_addr;
   DECLARE_HDR_CACHE;
+
+  dbg_greatest_ha = (ptr_t)GC_greatest_plausible_heap_addr; 
+  dbg_least_ha = (ptr_t)GC_least_plausible_heap_addr;
+  printf("[%s:%d] | greatest-HA = %p, least-HA = %p, diff= %04x\n", __FUNCTION__, __LINE__, greatest_ha, least_ha, greatest_ha - least_ha); 
 
 # define SPLIT_RANGE_WORDS 128  /* Must be power of 2.          */
 
