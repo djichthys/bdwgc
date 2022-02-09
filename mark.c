@@ -600,6 +600,7 @@ GC_INNER mse * GC_signal_mark_stack_overflow(mse *msp)
 }
 
 extern unsigned long long dbg_gc_loop_count;
+extern unsigned long long dbg_stk_pushes; 
 extern ptr_t dbg_greatest_ha; 
 extern ptr_t dbg_least_ha; 
 
@@ -917,6 +918,7 @@ GC_INNER mse * GC_mark_from(mse *mark_stack_top, mse *mark_stack,
 #         endif /* ENABLE_TRACE */
           PUSH_CONTENTS((ptr_t)current, mark_stack_top,
                         mark_stack_limit, current_p);
+	  dbg_stk_pushes++ ;
         }
         current_p += ALIGNMENT;
 	dbg_gc_loop_count++;
@@ -935,6 +937,7 @@ GC_INNER mse * GC_mark_from(mse *mark_stack_top, mse *mark_stack,
 #       endif /* ENABLE_TRACE */
         PUSH_CONTENTS((ptr_t)deferred, mark_stack_top,
                       mark_stack_limit, current_p);
+	dbg_stk_pushes++ ;
         next_object:;
 #     endif
     }
