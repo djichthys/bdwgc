@@ -619,7 +619,11 @@ GC_INNER mse * GC_mark_from(mse *mark_stack_top, mse *mark_stack,
 {
   signed_word credit = HBLKSIZE;  /* Remaining credit for marking work. */
   ptr_t current_p;      /* Pointer to current candidate ptr.            */
+# if !defined(__CHERI_PURE_CAPABILITY__)
   word current;         /* Candidate pointer.                           */
+# else
+  void **current;         /* Candidate pointer.                           */
+# endif
   ptr_t limit = 0;      /* (Incl) limit of current candidate range.     */
   word descr;
   ptr_t greatest_ha = (ptr_t)GC_greatest_plausible_heap_addr;
@@ -807,9 +811,10 @@ GC_INNER mse * GC_mark_from(mse *mark_stack_top, mse *mark_stack,
 #     define PREF_DIST 4
 
 #     ifndef SMALL_CONFIG
-        word deferred;
 
 #       if !defined(__CHERI_PURE_CAPABILITY__)
+        word deferred;
+
         /* Try to prefetch the next pointer to be examined ASAP.        */
         /* Empirically, this also seems to help slightly without        */
         /* prefetches, at least on linux/X86.  Presumably this loop     */
@@ -839,6 +844,8 @@ GC_INNER mse * GC_mark_from(mse *mark_stack_top, mse *mark_stack,
           if ((word)current_p > (word)limit) goto next_object;
         }
 #       else   /* !defined(__CHERI_PURE_CAPABILITY__) */
+        void **deferred;
+
         /* Check each pointer for validity before dereferencing         */
         /* to prevent capability exceptions.                            */
         /* Utilise the pointer meta-data to speed-up the loop.          */
@@ -864,7 +871,7 @@ GC_INNER mse * GC_mark_from(mse *mark_stack_top, mse *mark_stack,
           if (cheri_gettag(limit) == 0) {
             limit -= ALIGNMENT;
           } else {
-            deferred = *(word *)limit;
+            deferred = *(void **)limit;
             FIXUP_POINTER(deferred);
             limit -= ALIGNMENT;
             if (deferred >= (word)least_ha && deferred < (word)greatest_ha)
@@ -879,7 +886,11 @@ GC_INNER mse * GC_mark_from(mse *mark_stack_top, mse *mark_stack,
         /* Empirically, unrolling this loop doesn't help a lot. */
         /* Since PUSH_CONTENTS expands to a lot of code,        */
         /* we don't.                                            */
+#     if !defined(__CHERI_PURE_CAPABILITY__)
         current = *(word *)current_p;
+#     else !defined(__CHERI_PURE_CAPABILITY__)
+        current = *(void **)current_p;
+#     endif
         FIXUP_POINTER(current);
         PREFETCH(current_p + PREF_DIST*CACHE_LINE_SIZE);
         if (current >= (word)least_ha && current < (word)greatest_ha) {
