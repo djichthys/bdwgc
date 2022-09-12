@@ -18,6 +18,9 @@
 
 #include <stdio.h>
 #include <string.h>
+#if defined(__CHERI_PURE_CAPABILITY__)
+# include <cheriintrin.h>
+#endif
 
 /* Allocate reclaim list for the kind.  Returns TRUE on success.        */
 STATIC GC_bool GC_alloc_reclaim_list(struct obj_kind *kind)
@@ -201,6 +204,11 @@ GC_INNER void * GC_generic_malloc_inner(size_t lb, int k)
         *opp = obj_link(op);
         obj_link(op) = 0;
         GC_bytes_allocd += GRANULES_TO_BYTES((word)lg);
+#       if defined(__CHERI_PURE_CAPABILITY__)
+          op = cheri_align_up(op, ~cheri_representable_alignment_mask(GRANULES_TO_BYTES((word)lg)) + 1);
+          op = cheri_bounds_set_exact(op, cheri_representable_length(GRANULES_TO_BYTES((word)lg)));
+#       endif
+
     } else {
         op = (ptr_t)GC_alloc_large_and_clear(ADD_SLOP(lb), k, 0);
         if (op != NULL)
@@ -263,6 +271,9 @@ GC_API GC_ATTR_MALLOC void * GC_CALL GC_generic_malloc(size_t lb, int k)
 
         lg = ROUNDED_UP_GRANULES(lb);
         lb_rounded = GRANULES_TO_BYTES(lg);
+#       if defined(__CHERI_PURE_CAPABILITY__)
+          lb_rounded = cheri_representable_length(lb_rounded);
+#       endif
         n_blocks = OBJ_SZ_TO_BLOCKS(lb_rounded);
         init = GC_obj_kinds[k].ok_init;
         LOCK();
@@ -285,6 +296,10 @@ GC_API GC_ATTR_MALLOC void * GC_CALL GC_generic_malloc(size_t lb, int k)
         UNLOCK();
         if (init && !GC_debugging_started && 0 != result) {
             BZERO(result, n_blocks * HBLKSIZE);
+#           if defined(__CHERI_PURE_CAPABILITY__)
+              result = cheri_align_up(result, ~cheri_representable_alignment_mask(lb_rounded) + 1);
+              result = cheri_bounds_set_exact(result, cheri_representable_length(lb_rounded));
+#           endif
         }
     }
     if (0 == result) {
@@ -297,6 +312,9 @@ GC_API GC_ATTR_MALLOC void * GC_CALL GC_generic_malloc(size_t lb, int k)
 GC_API GC_ATTR_MALLOC void * GC_CALL GC_malloc_kind_global(size_t lb, int k)
 {
     GC_ASSERT(k < MAXOBJKINDS);
+#   if defined(__CHERI_PURE_CAPABILITY__)
+      lb = cheri_representable_length(lb); 
+#   endif
     if (SMALL_OBJ(lb)) {
         void *op;
         void **opp;
@@ -322,6 +340,10 @@ GC_API GC_ATTR_MALLOC void * GC_CALL GC_malloc_kind_global(size_t lb, int k)
             }
             GC_bytes_allocd += GRANULES_TO_BYTES((word)lg);
             UNLOCK();
+#           if defined(__CHERI_PURE_CAPABILITY__)
+              op = cheri_align_up(op, ~cheri_representable_alignment_mask(GRANULES_TO_BYTES((word)lg)) + 1);
+              op = cheri_bounds_set_exact(op, cheri_representable_length(GRANULES_TO_BYTES((word)lg))); 
+#           endif
             return op;
         }
         UNLOCK();
