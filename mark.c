@@ -791,6 +791,7 @@ GC_INNER mse * GC_mark_from(mse *mark_stack_top, mse *mark_stack,
             if ((word)current_p > (word)limit) goto next_object;
           }
           for(;;) {
+            PREFETCH(limit - PREF_DIST*CACHE_LINE_SIZE);
             GC_ASSERT((word)limit >= (word)current_p);
             if (cheri_address_get(limit) < cheri_base_get(limit)) goto next_object;
 
@@ -807,8 +808,33 @@ GC_INNER mse * GC_mark_from(mse *mark_stack_top, mse *mark_stack,
                                                      | CHERI_PERM_STORE
                                                      | CHERI_PERM_EXECUTE);
               if (((cheri_tag_get(deferred) != 0) && has_rwx)
-                    && (deferred >= (word)least_ha && deferred < (word)greatest_ha))
+                    && (deferred >= (word)least_ha && deferred < (word)greatest_ha)) {
+                PREFETCH((ptr_t)deferred);
                 break;
+              }
+            }
+            if ((word)current_p > (word)limit) goto next_object;
+
+	    /* Unroll */
+            if (cheri_address_get(limit) < cheri_base_get(limit)) goto next_object;
+
+            has_rwx = cheri_perms_get(limit) & (CHERI_PERM_LOAD
+                                                | CHERI_PERM_STORE
+                                                | CHERI_PERM_EXECUTE);
+            if ((cheri_tag_get(limit) == 0) || !has_rwx) {
+              limit -= ALIGNMENT;
+            } else {
+              deferred = *(void **)limit;
+              FIXUP_POINTER(deferred);
+              limit -= ALIGNMENT;
+              has_rwx = cheri_perms_get(deferred) & (CHERI_PERM_LOAD
+                                                     | CHERI_PERM_STORE
+                                                     | CHERI_PERM_EXECUTE);
+              if (((cheri_tag_get(deferred) != 0) && has_rwx)
+                    && (deferred >= (word)least_ha && deferred < (word)greatest_ha)) {
+                PREFETCH((ptr_t)deferred);
+                break;
+              }
             }
             if ((word)current_p > (word)limit) goto next_object;
           }
