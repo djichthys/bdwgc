@@ -88,8 +88,13 @@ GC_API GC_ATTR_MALLOC GC_ATTR_ALLOC_SIZE(1) void * GC_CALL
 /* An internal macro to update the free list pointer atomically (if     */
 /* the AO primitives are available) to avoid race with the marker.      */
 #if defined(GC_THREADS) && defined(AO_HAVE_store)
-# define GC_FAST_M_AO_STORE(my_fl, next) \
-                AO_store((volatile AO_t *)(my_fl), (AO_t)(next))
+# if defined(__CHERI_PURE_CAPABILITY__)
+#   define GC_FAST_M_AO_STORE(my_fl, next) \
+                  AO_store((volatile AO_t **)(my_fl), (AO_t *)(next))
+# else   /* defined(__CHERI_PURE_CAPABILITY__) */
+#   define GC_FAST_M_AO_STORE(my_fl, next) \
+                  AO_store((volatile AO_t *)(my_fl), (AO_t)(next))
+# endif   /* defined(__CHERI_PURE_CAPABILITY__) */
 #else
 # define GC_FAST_M_AO_STORE(my_fl, next) (void)(*(my_fl) = (next))
 #endif

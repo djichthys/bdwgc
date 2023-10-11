@@ -22,6 +22,10 @@
 
 #include "private/thread_local_alloc.h"
 
+#if defined(__CHERI_PURE_CAPABILITY__)
+# include <cheriintrin.h>
+#endif
+
 #if defined(USE_COMPILER_TLS)
   __thread GC_ATTR_TLS_FAST
 #elif defined(USE_WIN32_COMPILER_TLS)
@@ -143,6 +147,25 @@ GC_INNER void GC_destroy_thread_local(GC_tlfs p)
 #   endif
 }
 
+
+/* The ultimately general inline allocation macro.  Allocate an object  */
+/* of size granules, putting the resulting pointer in result.  Tiny_fl  */
+/* is a "tiny" free list array, which will be used first, if the size   */
+/* is appropriate.  If granules argument is too large, we allocate with */
+/* default_expr instead.  If we need to refill the free list, we use    */
+/* GC_generic_malloc_many with the indicated kind.                      */
+/* Tiny_fl should be an array of GC_TINY_FREELISTS void * pointers.     */
+/* If num_direct is nonzero, and the individual free list pointers      */
+/* are initialized to (void *)1, then we allocate num_direct granules   */
+/* directly using generic_malloc before putting multiple objects into   */
+/* the tiny_fl entry.  If num_direct is zero, then the free lists may   */
+/* also be initialized to (void *)0.                                    */
+/* Note that we use the zeroth free list to hold objects 1 granule in   */
+/* size that are used to satisfy size 0 allocation requests.            */
+/* We rely on much of this hopefully getting optimized away in the      */
+/* num_direct = 0 case.                                                 */
+/* Particularly, if granules argument is constant, this should generate */
+/* a small amount of code.                                              */
 GC_API GC_ATTR_MALLOC void * GC_CALL GC_malloc_kind(size_t bytes, int kind)
 {
     size_t granules;
@@ -183,11 +206,76 @@ GC_API GC_ATTR_MALLOC void * GC_CALL GC_malloc_kind(size_t bytes, int kind)
 #   else
 #     define MALLOC_KIND_PTRFREE_INIT NULL
 #   endif
+    #if 0 
     GC_FAST_MALLOC_GRANS(result, granules,
                          ((GC_tlfs)tsd) -> _freelists[kind], DIRECT_GRANULES,
                          kind, GC_malloc_kind_global(bytes, kind),
                          (void)(kind == PTRFREE ? MALLOC_KIND_PTRFREE_INIT
                                                : (obj_link(result) = 0)));
+
+    #else
+  do {
+    if (GC_EXPECT((granules) >= GC_TINY_FREELISTS, 0)) {
+        //result = (default_expr);
+        result = (GC_malloc_kind_global(bytes, kind));
+    } else {
+        //void **my_fl = (tiny_fl) + (granules);
+        void **my_fl = (((GC_tlfs)tsd) -> _freelists[kind]) + (granules);
+        void *my_entry = *my_fl;
+        void *next;
+
+        printf("[%s:%d] | ==============\nbytes = %d, kind = %d\n", __FUNCTION__, __LINE__,bytes , kind );
+        for (;;) {
+            if (GC_EXPECT((GC_word)my_entry
+                          > (DIRECT_GRANULES) + GC_TINY_FREELISTS + 1, 1)) {
+	        if (!cheri_tag_get(my_entry)) { 
+		  printf("[%s:%d] | ptr = %p is invalid\n", __FUNCTION__, __LINE__, my_entry); fflush(NULL);
+		} else { 
+		  printf("[%s:%d] | valid ptr = %p\n", __FUNCTION__, __LINE__, my_entry);
+		}
+		 
+                next = *(void **)(my_entry);
+                result = (void *)my_entry;
+                GC_FAST_M_AO_STORE(my_fl, next);
+                //init;
+                (void)(kind == PTRFREE ? MALLOC_KIND_PTRFREE_INIT : (obj_link(result) = 0));
+                GC_PREFETCH_FOR_WRITE(next);
+                if ((kind) != GC_I_PTRFREE) {
+                    GC_end_stubborn_change(my_fl);
+                    GC_reachable_here(next);
+                }
+                GC_ASSERT(GC_size(result) >= (granules)*GC_GRANULE_BYTES);
+                GC_ASSERT((kind) == GC_I_PTRFREE
+                          || ((GC_word *)result)[1] == 0);
+                break;
+            }
+            /* Entry contains counter or NULL */
+            if ((GC_signed_word)my_entry - (GC_signed_word)(DIRECT_GRANULES) <= 0
+                    /* (GC_word)my_entry <= (num_direct) */
+                    && my_entry != 0 /* NULL */) {
+                /* Small counter value, not NULL */
+                GC_FAST_M_AO_STORE(my_fl, (char *)my_entry
+                                          + (granules) + 1);
+                //result = (default_expr);
+                result = (GC_malloc_kind_global(bytes, kind));
+                break;
+            } else {
+                /* Large counter or NULL */
+                GC_generic_malloc_many(((granules) == 0? GC_GRANULE_BYTES :
+                                        GC_RAW_BYTES_FROM_INDEX(granules)),
+                                       kind, my_fl);
+                my_entry = *my_fl;
+                if (my_entry == 0) {
+                    result = (*GC_get_oom_fn())((granules)*GC_GRANULE_BYTES);
+                    break;
+                }
+            }
+        }
+    }
+  } while (0); 
+
+    #endif
+
 #   ifdef LOG_ALLOCS
       GC_log_printf("GC_malloc_kind(%lu, %d) returned %p, recent GC #%lu\n",
                     (unsigned long)bytes, kind, result,
@@ -275,7 +363,7 @@ GC_INNER void GC_mark_thread_local_fls_for(GC_tlfs p)
       for (i = 0; i < THREAD_FREELISTS_KINDS; ++i) {
         /* Load the pointer atomically as it might be updated   */
         /* concurrently by GC_FAST_MALLOC_GRANS.                */
-        q = (ptr_t)AO_load((volatile AO_t *)&p->_freelists[i][j]);
+        q = (ptr_t)AO_load((volatile AO_t **)&p->_freelists[i][j]);
         if ((word)q > HBLKSIZE)
           GC_set_fl_marks(q);
       }
