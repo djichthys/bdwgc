@@ -318,6 +318,10 @@ GC_API GC_ATTR_MALLOC void * GC_CALL GC_malloc_kind_global(size_t lb, int k)
                 obj_link(op) = 0;
             }
             GC_bytes_allocd += GRANULES_TO_BYTES((word)lg);
+#           if defined(__CHERI_PURE_CAPABILITY__)
+// Change base and length of the buffer that is allocated before returning
+            GRANULES_TO_BYTES((word)lg);
+#           endif 
             UNLOCK();
             return op;
         }
