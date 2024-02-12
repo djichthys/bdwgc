@@ -17,6 +17,7 @@
 #include "private/gc_priv.h"
 
 #include <string.h>
+#include <cheriintrin.h>
 
 /* Allocate reclaim list for the kind.  Returns TRUE on success.        */
 STATIC GC_bool GC_alloc_reclaim_list(struct obj_kind *kind)
@@ -199,6 +200,10 @@ GC_INNER void * GC_generic_malloc_inner(size_t lb, int k)
         }
         *opp = obj_link(op);
         obj_link(op) = 0;
+#       if defined(__CHERI_PURE_CAPABILITY__)
+          size_t upper_bound = GRANULES_TO_BYTES((word)lg);
+          cheri_bounds_set(op, upper_bound);
+#       endif
         GC_bytes_allocd += GRANULES_TO_BYTES((word)lg);
     } else {
         op = (ptr_t)GC_alloc_large_and_clear(ADD_SLOP(lb), k, 0);
@@ -281,6 +286,9 @@ GC_API GC_ATTR_MALLOC void * GC_CALL GC_generic_malloc(size_t lb, int k)
 #           endif
           }
           GC_bytes_allocd += lb_rounded;
+#         if defined(__CHERI_PURE_CAPABILITY__)
+            cheri_bounds_set(result, lb_rounded);
+#         endif
         }
         UNLOCK();
         if (init && !GC_debugging_started && 0 != result) {
@@ -319,8 +327,7 @@ GC_API GC_ATTR_MALLOC void * GC_CALL GC_malloc_kind_global(size_t lb, int k)
             }
             GC_bytes_allocd += GRANULES_TO_BYTES((word)lg);
 #           if defined(__CHERI_PURE_CAPABILITY__)
-// Change base and length of the buffer that is allocated before returning
-            GRANULES_TO_BYTES((word)lg);
+              cheri_bounds_set(op, GRANULES_TO_BYTES((word)lg));
 #           endif 
             UNLOCK();
             return op;
