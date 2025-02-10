@@ -1576,7 +1576,7 @@ GC_API void GC_CALL GC_push_all_eager(void *bottom, void *top)
 # if defined(__CHERI_PURE_CAPABILITY__)
     lim = t - 1;
     if ((intptr_t)lim >= (cheri_base_get(b) + cheri_length_get(b)))
-      lim = cheri_base_get(b) + cheri_length_get(b) - sizeof(ptr_t);
+      lim = cheri_address_set(b, cheri_base_get(b) + cheri_length_get(b) - sizeof(ptr_t));
 
     for (current_p = b; (word)current_p <= (word)lim; current_p++) {
       REGISTER void *q = *current_p;

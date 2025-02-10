@@ -1044,10 +1044,10 @@ GC_INNER size_t GC_page_size = 0;
     void * GC_find_limit(void * p, int up)
     {
 #     if defined(__CHERI_PURE_CAPABILITY__)
-        vaddr_t bound = up ? cheri_base_get(p) + cheri_length_get(p)
-                             : cheri_address_set(p, cheri_base_get(p));
+        vaddr_t bound = up ? (cheri_base_get(p) + cheri_length_get(p))
+                             : (vaddr_t)cheri_address_set(p, cheri_base_get(p));
         return GC_find_limit_with_bound((ptr_t)p, (GC_bool)up,
-                                        cheri_address_set(p, bound));
+                                        cheri_address_set(p, (vaddr_t)bound));
 #     else  /* defined(__CHERI_PURE_CAPABILITY__) */
         return GC_find_limit_with_bound((ptr_t)p, (GC_bool)up,
                                         up ? (ptr_t)GC_WORD_MAX : 0);
@@ -2092,7 +2092,7 @@ void GC_register_data_segments(void)
     STATIC int GC_ld_cap_search(struct dl_phdr_info *info, size_t size, void *data)
     {
       struct scan_bounds *region = (struct scan_bounds *)data;
-      ptr_t load_addr = info->dlpi_addr;
+      ptr_t load_addr = (ptr_t)(info->dlpi_addr);
 
       if (!region || !SPANNING_CAPABILITY(load_addr,
              region->start, region->end)) {
@@ -2135,7 +2135,7 @@ void GC_register_data_segments(void)
       ptr_t text_end = cheri_align_up(etext_addr, sizeof(ptr_t));
       text_end = GC_derive_cap_from_ldr(text_end, DATAEND);
       /* etext rounded to word boundary       */
-      volatile vaddr_t next_page = cheri_align_up(text_end, max_page_size);
+      volatile vaddr_t next_page = (vaddr_t)cheri_align_up(text_end, max_page_size);
       volatile ptr_t result = text_end;
       GC_setup_temporary_fault_handler();
       if (SETJMP(GC_jmp_buf) == 0) {
@@ -2149,7 +2149,7 @@ void GC_register_data_segments(void)
       } else {
           GC_reset_fault_handler();
           /* As above, we go to plan B    */
-          result = (ptr_t)GC_find_limit(cheri_address_set(text_end,DATAEND), FALSE);
+          result = (ptr_t)GC_find_limit(cheri_address_set(text_end, (vaddr_t)DATAEND), FALSE);
       }
       return(result);
     }
