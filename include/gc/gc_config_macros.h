@@ -50,7 +50,8 @@
 #    define GC_SIZEOF_PTR __SIZEOF_POINTER__
 #  elif defined(__LP64__) || defined(_LP64) || defined(_WIN64)               \
       || defined(__alpha__) || defined(__arch64__) || defined(__powerpc64__) \
-      || defined(__s390x__) || (defined(__x86_64__) && !defined(__ILP32__))
+      || defined(__s390x__) || defined(__sparcv9)                            \
+      || (defined(__x86_64__) && !defined(__ILP32__))
 #    define GC_SIZEOF_PTR 8
 #  else
 #    define GC_SIZEOF_PTR 4
@@ -380,7 +381,7 @@ typedef long ptrdiff_t;
 #  endif
 
 #  if defined(GC_HAVE_BUILTIN_BACKTRACE) && !defined(GC_CAN_SAVE_CALL_STACKS) \
-      || defined(__sparc__)
+      || defined(__sparc)
 #    define GC_CAN_SAVE_CALL_STACKS
 #  endif
 

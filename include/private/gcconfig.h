@@ -566,7 +566,7 @@ EXTERN_C_BEGIN
     && (defined(LINUX) || defined(NETBSD) || defined(OPENBSD))
 #  define SH
 #  define mach_type_known
-#elif (defined(__sparc__) || defined(sparc)) \
+#elif (defined(__sparc) || defined(sparc)) \
     && (defined(ANY_BSD) || defined(LINUX))
 #  define SPARC
 #  define mach_type_known
@@ -781,10 +781,10 @@ EXTERN_C_BEGIN
 #  define PTR_ALIGN_UP(p, b) __builtin_align_up(p, b)
 #else
 #  define PTR_ALIGN_DOWN(p, b) \
-    ((ptr_t)((GC_uintptr_t)(p) & ~(GC_uintptr_t)((b)-1)))
-#  define PTR_ALIGN_UP(p, b)                             \
-    ((ptr_t)(((GC_uintptr_t)(p) + (GC_uintptr_t)((b)-1)) \
-             & ~(GC_uintptr_t)((b)-1)))
+    ((ptr_t)((GC_uintptr_t)(p) & ~((GC_uintptr_t)(b) - (GC_uintptr_t)1)))
+#  define PTR_ALIGN_UP(p, b)                                           \
+    ((ptr_t)(((GC_uintptr_t)(p) + (GC_uintptr_t)(b) - (GC_uintptr_t)1) \
+             & ~((GC_uintptr_t)(b) - (GC_uintptr_t)1)))
 #endif
 
 /* If available, we can use __builtin_unwind_init() to push the     */
@@ -796,6 +796,8 @@ EXTERN_C_BEGIN
     && !(defined(POWERPC) && defined(DARWIN)) /* for MacOS X 10.3.9 */    \
     && !defined(E2K) && !defined(RTEMS)                                   \
     && !defined(__ARMCC_VERSION) /* does not exist in armcc gnu emu */    \
+    && !(defined(__clang__)                                               \
+         && defined(__ARM_ARCH_5TE__) /* clang-19 emits vpush/vpop */)    \
     && (!defined(__clang__)                                               \
         || GC_CLANG_PREREQ(8, 0) /* was no-op in clang-3 at least */)
 #  define HAVE_BUILTIN_UNWIND_INIT
@@ -1414,11 +1416,7 @@ extern int etext[];
 #  ifdef SOLARIS
 extern int _etext[];
 #    define DATASTART GC_SysVGetDataStart(0x1000, (ptr_t)_etext)
-/* At least in Solaris 2.5, PROC_VDB gives wrong values for     */
-/* dirty bits.  It appears to be fixed in 2.8 and 2.9.          */
-#    ifdef SOLARIS25_PROC_VDB_BUG_FIXED
-#      define PROC_VDB
-#    endif
+#    define PROC_VDB
 #  endif
 #  ifdef SCO
 #    define OS_TYPE "SCO"
@@ -1446,7 +1444,7 @@ extern int _etext, _end;
 #    ifndef USE_MMAP
 #      define USE_MMAP 1
 #    endif
-#    define MAP_FAILED (void *)((GC_uintptr_t)-1)
+#    define MAP_FAILED ((void *)(~(GC_uintptr_t)0))
 #    define HEAP_START ((word)0x40000000)
 #  endif /* DGUX */
 #  ifdef LINUX
@@ -2324,9 +2322,7 @@ extern int _end[];
 #    define ELF_CLASS ELFCLASS64
 extern int _etext[];
 #    define DATASTART GC_SysVGetDataStart(0x1000, (ptr_t)_etext)
-#    ifdef SOLARIS25_PROC_VDB_BUG_FIXED
-#      define PROC_VDB
-#    endif
+#    define PROC_VDB
 #  endif
 #  ifdef CYGWIN32
 #    ifndef USE_WINALLOC
@@ -2357,7 +2353,7 @@ LONG64 durango_get_stack_bottom(void);
 #    define PROT_EXEC 4
 #    define MAP_PRIVATE 2
 #    define MAP_FIXED 0x10
-#    define MAP_FAILED ((void *)-1)
+#    define MAP_FAILED ((void *)(~(GC_uintptr_t)0))
 #  endif
 #  ifdef MSWIN32
 #    define RETRY_GET_THREAD_CONTEXT
@@ -2471,9 +2467,9 @@ void *emmalloc_memalign(size_t align, size_t lb);
 #  ifdef WASI
 #    define OS_TYPE "WASI"
 extern char __global_base, __heap_base;
-#    define STACKBOTTOM ((ptr_t)&__global_base)
-#    define DATASTART ((ptr_t)&__global_base)
-#    define DATAEND ((ptr_t)&__heap_base)
+#    define DATASTART ((ptr_t)(&__global_base))
+#    define DATAEND ((ptr_t)(&__heap_base))
+#    define STACKBOTTOM DATASTART
 #    ifndef GC_NO_SIGSETJMP
 #      define GC_NO_SIGSETJMP 1 /* no support of signals */
 #    endif
@@ -2532,6 +2528,13 @@ extern char __global_base, __heap_base;
 #if defined(CHERI_PURECAP) && defined(USE_MMAP)
 /* TODO: currently turned off to avoid downgrading permissions on CHERI */
 #  undef USE_MUNMAP
+#endif
+
+#if (defined(E2K) && defined(USE_PTR_HWTAG) || defined(CHERI_PURECAP)) \
+    && !defined(NO_BLACK_LISTING)
+/* Misinterpreting of an integer is not possible on the platforms with  */
+/* H/W-tagged pointers, thus the black-listing mechanism is redundant.  */
+#  define NO_BLACK_LISTING
 #endif
 
 #if defined(REDIRECT_MALLOC) && defined(THREADS) \
@@ -3408,7 +3411,7 @@ extern ptr_t GC_data_start;
 #  define NEED_FIXUP_POINTER
 #elif defined(DYNAMIC_POINTER_MASK)
 #  define FIXUP_POINTER(p) \
-    (p = (ptr_t)(((word)(p)&GC_pointer_mask) << GC_pointer_shift))
+    (p = (ptr_t)((((word)(p)) & GC_pointer_mask) << GC_pointer_shift))
 #  undef POINTER_MASK
 #  undef POINTER_SHIFT
 #  define NEED_FIXUP_POINTER

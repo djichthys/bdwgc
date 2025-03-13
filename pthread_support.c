@@ -819,18 +819,19 @@ GC_new_thread(thread_id_t self_id)
 /* Delete a thread from GC_threads.  We assume it is there.  (The code  */
 /* intentionally traps if it was not.)  It is also safe to delete the   */
 /* main thread.  If GC_win32_dll_threads is set, it should be called    */
-/* only from the thread being deleted.  If a thread has been joined,    */
-/* but we have not yet been notified, then there may be more than one   */
-/* thread in the table with the same thread id - this is OK because we  */
-/* delete a specific one.                                               */
+/* only from the thread being deleted (except for DLL_PROCESS_DETACH    */
+/* case).  If a thread has been joined, but we have not yet been        */
+/* notified, then there may be more than one thread in the table with   */
+/* the same thread id - this is OK because we delete a specific one.    */
 GC_INNER_WIN32THREAD void
 GC_delete_thread(GC_thread t)
 {
-#  if defined(GC_WIN32_THREADS) && !defined(MSWINCE)
-  CloseHandle(t->handle);
-#  endif
 #  if !defined(GC_NO_THREADS_DISCOVERY) && defined(GC_WIN32_THREADS)
   if (GC_win32_dll_threads) {
+    HANDLE handle = t->handle;
+
+    GC_cptr_store_release(&t->handle, NULL);
+    CloseHandle(handle);
     /* This is intended to be lock-free.  It is either called         */
     /* synchronously from the thread being deleted, or by the joining */
     /* thread.  In this branch asynchronous changes to (*t) are       */
@@ -858,6 +859,9 @@ GC_delete_thread(GC_thread t)
       && (!defined(MSWIN32) || defined(CONSOLE_LOG))
     GC_log_printf("Deleting thread %p, n_threads= %d\n", THREAD_ID_TO_VPTR(id),
                   GC_count_threads());
+#  endif
+#  if defined(GC_WIN32_THREADS) && !defined(MSWINCE)
+    CloseHandle(t->handle);
 #  endif
     for (p = GC_threads[hv]; p != t; p = p->tm.next) {
       prev = p;
@@ -1283,12 +1287,10 @@ GC_wait_for_gc_completion(GC_bool wait_for_all)
     /* code defect about missing unlock after lock.               */
 #    endif
     do {
-      ENTER_GC();
       GC_ASSERT(!GC_in_thread_creation);
       GC_in_thread_creation = TRUE;
       GC_collect_a_little_inner(1);
       GC_in_thread_creation = FALSE;
-      EXIT_GC();
 
       UNLOCK();
 #    ifdef GC_WIN32_THREADS

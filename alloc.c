@@ -462,9 +462,7 @@ GC_start_incremental_collection(void)
   if (GC_incremental) {
     GC_should_start_incremental_collection = TRUE;
     if (!GC_dont_gc) {
-      ENTER_GC();
       GC_collect_a_little_inner(1);
-      EXIT_GC();
     }
   }
   UNLOCK();
@@ -560,10 +558,12 @@ GC_maybe_gc(void)
     GC_COND_LOG_PRINTF(
         "***>Full mark for collection #%lu after %lu allocd bytes\n",
         (unsigned long)GC_gc_no + 1, (unsigned long)GC_bytes_allocd);
+    GC_notify_full_gc();
+    ENTER_GC();
     GC_promote_black_lists();
     (void)GC_reclaim_all((GC_stop_func)0, TRUE);
-    GC_notify_full_gc();
     GC_clear_marks();
+    EXIT_GC();
     n_partial_gcs = 0;
     GC_is_full_gc = TRUE;
   } else {
@@ -634,9 +634,7 @@ GC_try_to_collect_inner(GC_stop_func stop_func)
         /* TODO: Notify GC_EVENT_ABANDON */
         return FALSE;
       }
-      ENTER_GC();
       GC_collect_a_little_inner(1);
-      EXIT_GC();
     } while (GC_collection_in_progress());
   }
   GC_notify_full_gc();
@@ -659,16 +657,19 @@ GC_try_to_collect_inner(GC_stop_func stop_func)
   if (GC_parallel)
     GC_wait_for_reclaim();
 #endif
+  ENTER_GC();
   if ((GC_find_leak || stop_func != GC_never_stop_func)
       && !GC_reclaim_all(stop_func, FALSE)) {
     /* Aborted.  So far everything is still consistent. */
+    EXIT_GC();
     /* TODO: Notify GC_EVENT_ABANDON */
     return FALSE;
   }
-  GC_invalidate_mark_state(); /* Flush mark stack.   */
+  GC_invalidate_mark_state(); /* flush mark stack */
   GC_clear_marks();
   SAVE_CALLERS_TO_LAST_STACK();
   GC_is_full_gc = TRUE;
+  EXIT_GC();
   if (!GC_stopped_mark(stop_func)) {
     if (!GC_incremental) {
       /* We're partially done and have no way to complete or use      */
@@ -775,6 +776,7 @@ GC_collect_a_little_inner(size_t n_blocks)
     size_t i;
     size_t max_deficit = GC_rate * n_blocks;
 
+    ENTER_GC();
 #ifdef PARALLEL_MARK
     if (GC_time_limit != GC_TIME_UNLIMITED)
       GC_parallel_mark_disabled = TRUE;
@@ -786,6 +788,7 @@ GC_collect_a_little_inner(size_t n_blocks)
 #ifdef PARALLEL_MARK
     GC_parallel_mark_disabled = FALSE;
 #endif
+    EXIT_GC();
 
     if (i < max_deficit && !GC_dont_gc) {
       GC_ASSERT(!GC_collection_in_progress());
@@ -828,11 +831,9 @@ GC_collect_a_little(void)
   if (!EXPECT(GC_is_initialized, TRUE))
     GC_init();
   LOCK();
-  ENTER_GC();
   /* Note: if the collection is in progress, this may do marking (not */
   /* stopping the world) even in case of disabled GC.                 */
   GC_collect_a_little_inner(1);
-  EXIT_GC();
   result = (int)GC_collection_in_progress();
   UNLOCK();
   if (!result && GC_debugging_started)
@@ -849,6 +850,7 @@ GC_stop_world_external(void)
 #  ifdef THREAD_LOCAL_ALLOC
   GC_ASSERT(!GC_world_stopped);
 #  endif
+  ENTER_GC();
   STOP_WORLD();
 #  ifdef THREAD_LOCAL_ALLOC
   GC_world_stopped = TRUE;
@@ -865,6 +867,7 @@ GC_start_world_external(void)
   GC_ASSERT(GC_is_initialized);
 #  endif
   START_WORLD();
+  EXIT_GC();
   UNLOCK();
 }
 #endif /* THREADS */
@@ -897,6 +900,7 @@ GC_stopped_mark(GC_stop_func stop_func)
 
   GC_ASSERT(I_HOLD_LOCK());
   GC_ASSERT(GC_is_initialized);
+  ENTER_GC();
 #if !defined(REDIRECT_MALLOC) && defined(USE_WINALLOC)
   GC_add_current_malloc_heap();
 #endif
@@ -1039,6 +1043,7 @@ GC_stopped_mark(GC_stop_func stop_func)
   }
 #endif
 
+  EXIT_GC();
   if (0 == abandoned_at)
     return TRUE;
   GC_COND_LOG_PRINTF("Abandoned stopped marking after %u iterations\n",
@@ -1423,12 +1428,10 @@ GC_try_to_collect_general(GC_stop_func stop_func, GC_bool force_unmap)
   if (force_unmap || (GC_force_unmap_on_gcollect && old_unmap_threshold > 0))
     GC_unmap_threshold = 1; /* unmap as much as possible */
 #endif
-  ENTER_GC();
   /* Minimize junk left in my registers.      */
   GC_noop6(0, 0, 0, 0, 0, 0);
   result = GC_try_to_collect_inner(stop_func != 0 ? stop_func
                                                   : GC_default_stop_func);
-  EXIT_GC();
 #ifdef USE_MUNMAP
   /* Restore it.  */
   GC_unmap_threshold = old_unmap_threshold;
@@ -1576,6 +1579,7 @@ GC_add_to_heap(struct hblk *h, size_t sz)
   GC_heap_sects[GC_n_heap_sects].hs_start = (ptr_t)h;
   GC_heap_sects[GC_n_heap_sects].hs_bytes = sz;
   GC_n_heap_sects++;
+  hhdr->hb_block = h;
   hhdr->hb_sz = sz;
   hhdr->hb_flags = 0;
   GC_freehblk(h);
@@ -1617,7 +1621,7 @@ GC_add_to_heap(struct hblk *h, size_t sz)
   }
 }
 
-#if !defined(NO_DEBUGGING)
+#ifndef NO_DEBUGGING
 void
 GC_print_heap_sects(void)
 {
@@ -1630,19 +1634,21 @@ GC_print_heap_sects(void)
   for (i = 0; i < GC_n_heap_sects; i++) {
     ptr_t start = GC_heap_sects[i].hs_start;
     size_t len = GC_heap_sects[i].hs_bytes;
-    struct hblk *h;
     unsigned nbl = 0;
+#  ifndef NO_BLACK_LISTING
+    struct hblk *h;
 
     for (h = (struct hblk *)start; ADDR_LT((ptr_t)h, start + len); h++) {
       if (GC_is_black_listed(h, HBLKSIZE))
         nbl++;
     }
+#  endif
     GC_printf("Section %u from %p to %p %u/%lu blacklisted\n", (unsigned)i,
               (void *)start, (void *)&start[len], nbl,
               (unsigned long)divHBLKSZ(len));
   }
 }
-#endif
+#endif /* !NO_DEBUGGING */
 
 void *GC_least_plausible_heap_addr = MAKE_CPTR(GC_WORD_MAX);
 void *GC_greatest_plausible_heap_addr = NULL;
@@ -1843,6 +1849,10 @@ GC_collect_or_expand(word needed_blocks, unsigned flags, GC_bool retry)
                       / (HBLKSIZE * GC_free_space_divisor)
                   + needed_blocks;
   if (blocks_to_get > MAXHINCR) {
+#ifdef NO_BLACK_LISTING
+    UNUSED_ARG(flags);
+    blocks_to_get = needed_blocks > MAXHINCR ? needed_blocks : MAXHINCR;
+#else
     word slop;
 
     /* Get the minimum required to make it likely that we can satisfy */
@@ -1860,6 +1870,7 @@ GC_collect_or_expand(word needed_blocks, unsigned flags, GC_bool retry)
     } else {
       blocks_to_get = MAXHINCR;
     }
+#endif
     if (blocks_to_get > divHBLKSZ(GC_WORD_MAX))
       blocks_to_get = divHBLKSZ(GC_WORD_MAX);
   } else if (blocks_to_get < MINHINCR) {
@@ -1921,9 +1932,12 @@ GC_collect_or_expand(word needed_blocks, unsigned flags, GC_bool retry)
 GC_INNER ptr_t
 GC_allocobj(size_t lg, int k)
 {
+#define MAX_ALLOCOBJ_RETRIES 3
+  int retry_cnt = 0;
   void **flh = &GC_obj_kinds[k].ok_freelist[lg];
+#ifndef GC_DISABLE_INCREMENTAL
   GC_bool tried_minor = FALSE;
-  GC_bool retry = FALSE;
+#endif
 
   GC_ASSERT(I_HOLD_LOCK());
   GC_ASSERT(GC_is_initialized);
@@ -1931,7 +1945,10 @@ GC_allocobj(size_t lg, int k)
     return NULL;
 
   while (NULL == *flh) {
-    ENTER_GC();
+    /* Only a few iterations are expected at most, otherwise    */
+    /* something is wrong in one of the functions called below. */
+    if (retry_cnt > MAX_ALLOCOBJ_RETRIES)
+      ABORT("Too many retries in GC_allocobj");
 #ifndef GC_DISABLE_INCREMENTAL
     if (GC_incremental && GC_time_limit != GC_TIME_UNLIMITED && !GC_dont_gc) {
       /* True incremental mode, not just generational.      */
@@ -1943,31 +1960,30 @@ GC_allocobj(size_t lg, int k)
     GC_ASSERT(!GC_is_full_gc || NULL == GC_obj_kinds[k].ok_reclaim_list
               || NULL == GC_obj_kinds[k].ok_reclaim_list[lg]);
     GC_continue_reclaim(lg, k);
-    EXIT_GC();
 #if defined(CPPCHECK)
     GC_noop1_ptr(&flh);
 #endif
-    if (NULL == *flh) {
-      GC_new_hblk(lg, k);
+    if (*flh != NULL)
+      break;
+
+    GC_new_hblk(lg, k);
 #if defined(CPPCHECK)
-      GC_noop1_ptr(&flh);
+    GC_noop1_ptr(&flh);
 #endif
-      if (NULL == *flh) {
-        ENTER_GC();
-        if (GC_incremental && GC_time_limit == GC_TIME_UNLIMITED
-            && !tried_minor && !GC_dont_gc) {
-          GC_collect_a_little_inner(1);
-          tried_minor = TRUE;
-        } else {
-          if (!GC_collect_or_expand(1, 0 /* flags */, retry)) {
-            EXIT_GC();
-            return NULL;
-          }
-          retry = TRUE;
-        }
-        EXIT_GC();
-      }
+    if (*flh != NULL)
+      break;
+
+#ifndef GC_DISABLE_INCREMENTAL
+    if (GC_incremental && GC_time_limit == GC_TIME_UNLIMITED && !tried_minor
+        && !GC_dont_gc) {
+      GC_collect_a_little_inner(1);
+      tried_minor = TRUE;
+      continue;
     }
+#endif
+    if (EXPECT(!GC_collect_or_expand(1, 0 /* flags */, retry_cnt > 0), FALSE))
+      return NULL;
+    retry_cnt++;
   }
   /* Successful allocation; reset failure count.      */
   GC_fail_count = 0;

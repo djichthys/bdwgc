@@ -249,7 +249,6 @@ jobs:
     - MAKEFILE_TARGETS="check cord/de"
     - GCTEST_WITH_MPROTECT_VDB=true
   - os: freebsd
-    compiler: gcc
     env:
     - CFLAGS_EXTRA="-O3 -D _FORTIFY_SOURCE=2"
     - CONF_OPTIONS="--enable-cplusplus --enable-gc-assertions --enable-redirect-malloc --enable-rwlock"
@@ -271,7 +270,6 @@ jobs:
     - CMAKE_OPTIONS="-DCMAKE_BUILD_TYPE=Release -Denable_cplusplus=ON"
     - NO_CLONE_LIBATOMIC_OPS=true
   - os: freebsd
-    compiler: clang
     env:
     - MAKEFILE_NAME=Makefile.direct
     - MAKEFILE_TARGETS="check cord/de"
@@ -411,7 +409,7 @@ jobs:
     - GCTEST_WITH_MPROTECT_VDB=true
   - compiler: gcc
     env:
-    - CFLAGS_EXTRA="-D PROC_VDB -D GC_NO_SYS_FAULT_H -D NO_INCREMENTAL -D DEBUG_DIRTY_BITS"
+    - CFLAGS_EXTRA="-D PROC_VDB -D NO_BLACK_LISTING -D GC_NO_SYS_FAULT_H -D NO_INCREMENTAL -D DEBUG_DIRTY_BITS"
     - CONF_OPTIONS="--enable-cplusplus --disable-docs"
   - compiler: clang
     env:

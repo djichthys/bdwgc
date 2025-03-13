@@ -416,6 +416,10 @@ GC_suspend(GC_thread t)
 #  endif
 
   GC_ASSERT(I_HOLD_LOCK());
+#  ifndef GC_NO_THREADS_DISCOVERY
+  if (NULL == GC_cptr_load_acquire(&t->handle))
+    return;
+#  endif
 #  if defined(DEBUG_THREADS) && !defined(MSWINCE) \
       && (!defined(MSWIN32) || defined(CONSOLE_LOG))
   GC_log_printf("Suspending 0x%x\n", (int)t->id);
@@ -453,6 +457,11 @@ GC_suspend(GC_thread t)
     if (SuspendThread(t->handle) != (DWORD)-1) {
       CONTEXT context;
 
+      /* Calls to GetThreadContext() may fail.  Work around this by */
+      /* putting access in suspend/resume loop to advance thread    */
+      /* past problematic areas where suspend fails.  Capture the   */
+      /* context in per thread structure at the suspend time rather */
+      /* than at retrieving the context during the push logic.      */
       context.ContextFlags = GET_THREAD_CONTEXT_FLAGS;
       if (GetThreadContext(t->handle, &context)) {
         /* TODO: WoW64 extra workaround: if CONTEXT_EXCEPTION_ACTIVE  */
@@ -465,10 +474,22 @@ GC_suspend(GC_thread t)
       /* Resume the thread, try to suspend it in a better location.   */
       if (ResumeThread(t->handle) == (DWORD)-1)
         ABORT("ResumeThread failed in suspend loop");
+    } else {
+#    ifndef GC_NO_THREADS_DISCOVERY
+      if (NULL == GC_cptr_load_acquire(&t->handle)) {
+        /* The thread handle is closed asynchronously by GC_DllMain. */
+        GC_release_dirty_lock();
+        return;
+      }
+#    endif
     }
     if (retry_cnt > 1) {
       GC_release_dirty_lock();
       Sleep(0); /* yield */
+#    ifndef GC_NO_THREADS_DISCOVERY
+      if (NULL == GC_cptr_load_acquire(&t->handle))
+        return;
+#    endif
       GC_acquire_dirty_lock();
     }
     if (++retry_cnt >= MAX_SUSPEND_THREAD_RETRIES) {
@@ -487,8 +508,15 @@ GC_suspend(GC_thread t)
 #    endif
     return;
   }
-  if (SuspendThread(t->handle) == (DWORD)-1)
+  if (SuspendThread(t->handle) == (DWORD)-1) {
+#    ifndef GC_NO_THREADS_DISCOVERY
+    if (NULL == GC_cptr_load_acquire(&t->handle)) {
+      GC_release_dirty_lock();
+      return;
+    }
+#    endif
     ABORT("SuspendThread failed");
+  }
 #  endif
   t->flags |= IS_SUSPENDED;
   GC_release_dirty_lock();
@@ -645,7 +673,7 @@ GC_start_world(void)
 /* argument later and must not be used as the lower bound for sp      */
 /* check (since the stack may be bigger than 64 KiB).                 */
 #    define GC_wince_evaluate_stack_min(s) \
-      (ptr_t)(((word)(s)-1) & ~(word)0xFFFF)
+      (ptr_t)(((word)(s) - (word)1) & ~(word)0xFFFF)
 #  elif defined(GC_ASSERTIONS)
 #    define GC_dont_query_stack_min FALSE
 #  endif
@@ -1233,7 +1261,7 @@ GC_start_mark_threads_inner(void)
     handle = _beginthreadex(NULL /* security_attr */, MARK_THREAD_STACK_SIZE,
                             GC_mark_thread, NUMERIC_TO_VPTR(i), 0 /* flags */,
                             &thread_id);
-    if (EXPECT(!handle || handle == (GC_uintptr_t)-1L, FALSE)) {
+    if (EXPECT(!handle || handle == ~(GC_uintptr_t)0, FALSE)) {
       WARN("Marker thread %" WARN_PRIdPTR " creation failed\n",
            (GC_signed_word)i);
       /* Don't try to create other marker threads.                */
