@@ -3477,7 +3477,13 @@ GC_write_fault_handler(struct _EXCEPTION_POINTERS *exc_info)
 #    endif
       }
     }
+
+#    ifdef CHERI_PURECAP
+    hdr *hhdr = HDR(h); 
+    UNPROTECT(hhdr->hb_block, GC_page_size);
+#    else 
     UNPROTECT(h, GC_page_size);
+#    endif 
     /* We need to make sure that no collection occurs between       */
     /* the UNPROTECT and the setting of the dirty bit.  Otherwise   */
     /* a write by a third thread might go unnoticed.  Reversing     */
