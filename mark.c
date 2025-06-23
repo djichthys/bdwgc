@@ -2188,7 +2188,17 @@ GC_push_next_marked_dirty(struct hblk *h)
   /* else */ {
     GC_push_marked(h, hhdr);
   }
+#  ifndef CHERI_PURECAP
   return h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
+#  else
+  h = h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
+  word base_addr = cheri_base_get(h);
+  if (ADDR(h) < base_addr || ADDR(h) > base_addr + cheri_length_get(h)){
+    hhdr = HDR(h);
+    h = cheri_address_set(hhdr->hb_block, cheri_address_get(h));
+  }
+  return h;
+#  endif
 }
 #endif /* !GC_DISABLE_INCREMENTAL */
 
