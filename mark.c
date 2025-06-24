@@ -2144,7 +2144,8 @@ GC_push_next_marked(struct hblk *h)
 #endif
   }
   GC_push_marked(h, hhdr);
-  return h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
+  NEXT_BLK(h);
+  return h;
 }
 
 #ifndef GC_DISABLE_INCREMENTAL
@@ -2186,19 +2187,14 @@ GC_push_next_marked_dirty(struct hblk *h)
   } else
 #  endif
   /* else */ {
+#   ifdef CHERI_PURECAP
+    INBOUND_CAPABILITY(h);
+#   endif
     GC_push_marked(h, hhdr);
+
   }
-#  ifndef CHERI_PURECAP
-  return h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
-#  else
-  h = h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
-  word base_addr = cheri_base_get(h);
-  if (ADDR(h) < base_addr || ADDR(h) > base_addr + cheri_length_get(h)){
-    hhdr = HDR(h);
-    h = cheri_address_set(hhdr->hb_block, cheri_address_get(h));
-  }
+  NEXT_BLK(h);
   return h;
-#  endif
 }
 #endif /* !GC_DISABLE_INCREMENTAL */
 
@@ -2231,8 +2227,9 @@ GC_push_next_marked_uncollectable(struct hblk *h)
       break;
     }
 #endif
-    h += OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
+    NEXT_BLK(h);
     hhdr = HDR(h);
   }
-  return h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
+  NEXT_BLK(h);
+  return h;
 }
