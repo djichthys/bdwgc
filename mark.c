@@ -2144,7 +2144,10 @@ GC_push_next_marked(struct hblk *h)
 #endif
   }
   GC_push_marked(h, hhdr);
-  NEXT_BLK(h);
+  h = h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz)
+# ifdef CHERI_PURECAP
+  INBOUND_CAPABILITY(h);
+# endif
   return h;
 }
 
@@ -2159,6 +2162,9 @@ GC_push_next_marked_dirty(struct hblk *h)
   if (!GC_incremental)
     ABORT("Dirty bits not set up");
   for (;; h += OBJ_SZ_TO_BLOCKS(hhdr->hb_sz)) {
+#   ifdef CHERI_PURECAP
+    INBOUND_CAPABILITY(h);
+#   endif
     hhdr = HDR(h);
     if (EXPECT(IS_FORWARDING_ADDR_OR_NIL(hhdr) || HBLK_IS_FREE(hhdr), FALSE)) {
       h = GC_next_block(h, FALSE);
@@ -2193,7 +2199,10 @@ GC_push_next_marked_dirty(struct hblk *h)
     GC_push_marked(h, hhdr);
 
   }
-  NEXT_BLK(h);
+  h = h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz)
+# ifdef CHERI_PURECAP
+  INBOUND_CAPABILITY(h);
+# endif
   return h;
 }
 #endif /* !GC_DISABLE_INCREMENTAL */
@@ -2227,9 +2236,15 @@ GC_push_next_marked_uncollectable(struct hblk *h)
       break;
     }
 #endif
-    NEXT_BLK(h);
+    h = h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz)
+    #   ifdef CHERI_PURECAP
+    INBOUND_CAPABILITY(h);
+#   endif
     hhdr = HDR(h);
   }
-  NEXT_BLK(h);
+  h = h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz)
+# ifdef CHERI_PURECAP
+  INBOUND_CAPABILITY(h);
+# endif
   return h;
 }
