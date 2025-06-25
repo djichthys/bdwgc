@@ -2274,15 +2274,20 @@ ptr_t GC_save_regs_in_stack(void);
   NEXT_BLK_IMPL(h)
 
 #ifdef CHERI_PURECAP
-# define INBOUND_CAPABILITY(h)                                       \
-  do{                                                                \
-    word base_addr = cheri_base_get(h);                              \
-    if (!VALID_CAPABILITY(h, base_addr)){                            \
-      hdr *hhdr = HDR(h);                                            \
-      if (hhdr != NULL)                                              \
-        h = cheri_address_set(hhdr->hb_block, cheri_address_get(h)); \
-    }                                                                \
-  }while (0)
+# define VALID_CAPABILITY(cap, base_addr)                                   \
+  (cheri_tag_get(cap) && ADDR(cap) >= base_addr                             \
+      && ADDR(cap) < base_addr + cheri_length_get(cap)                      \
+      && (cheri_perms_get(cap) & (CHERI_PERM_LOAD | CHERI_PERM_LOAD_CAP))   \
+              != 0)
+# define INBOUND_CAPABILITY(h)                                         \
+    do{                                                                \
+      word base_addr = cheri_base_get(h);                              \
+      if (!VALID_CAPABILITY(h, base_addr)){                            \
+        hdr *hhdr = HDR(h);                                            \
+        if (hhdr != NULL)                                              \
+          h = cheri_address_set(hhdr->hb_block, cheri_address_get(h)); \
+      }                                                                \
+    }while (0)
 #endif
 
 #if defined(DARWIN) && defined(THREADS)
