@@ -3479,8 +3479,9 @@ GC_write_fault_handler(struct _EXCEPTION_POINTERS *exc_info)
     }
 
 #    ifdef CHERI_PURECAP
-    hdr *hhdr = HDR(h); 
-    UNPROTECT(hhdr->hb_block, GC_page_size);
+    hdr *hhdr = HDR(GC_prev_block(h));
+    struct hblk * mh = cheri_address_set(hhdr->hb_block, ADDR(h));
+    UNPROTECT(mh, GC_page_size);
 #    else 
     UNPROTECT(h, GC_page_size);
 #    endif 
