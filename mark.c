@@ -2144,11 +2144,13 @@ GC_push_next_marked(struct hblk *h)
 #endif
   }
   GC_push_marked(h, hhdr);
-  h = h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
 # ifdef CHERI_PURECAP
+  h +=OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
   INBOUND_CAPABILITY(h);
-# endif
   return h;
+# else
+  return h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
+# endif
 }
 
 #ifndef GC_DISABLE_INCREMENTAL
@@ -2197,13 +2199,14 @@ GC_push_next_marked_dirty(struct hblk *h)
     INBOUND_CAPABILITY(h);
 #   endif
     GC_push_marked(h, hhdr);
-
   }
-  h = h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
 # ifdef CHERI_PURECAP
+  h += OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
   INBOUND_CAPABILITY(h);
-# endif
   return h;
+# else
+  return h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
+# endif
 }
 #endif /* !GC_DISABLE_INCREMENTAL */
 
@@ -2236,15 +2239,17 @@ GC_push_next_marked_uncollectable(struct hblk *h)
       break;
     }
 #endif
-    h = h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
+    h += OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
 #   ifdef CHERI_PURECAP
     INBOUND_CAPABILITY(h);
 #   endif
     hhdr = HDR(h);
   }
-  h = h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
 # ifdef CHERI_PURECAP
+  h += OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
   INBOUND_CAPABILITY(h);
-# endif
   return h;
+# else
+  return h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
+# endif
 }

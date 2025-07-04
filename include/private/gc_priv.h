@@ -2270,9 +2270,6 @@ ptr_t GC_save_regs_in_stack(void);
 #  define LOAD_PTR_OR_CONTINUE(v, p) (void)(v = *(ptr_t *)(p))
 #endif /* !CHERI_PURECAP */
 
-#define NEXT_BLK(h) \
-  NEXT_BLK_IMPL(h)
-
 #ifdef CHERI_PURECAP
 # define VALID_CAPABILITY(cap, base_addr)                                   \
   (cheri_tag_get(cap) && ADDR(cap) >= base_addr                             \
