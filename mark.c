@@ -2144,13 +2144,11 @@ GC_push_next_marked(struct hblk *h)
 #endif
   }
   GC_push_marked(h, hhdr);
-# ifdef CHERI_PURECAP
   h +=OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
-  INBOUND_CAPABILITY(h);
-  return h;
-# else
-  return h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
+# ifdef CHERI_PURECAP
+  RESOLVE_CAP(h);
 # endif
+  return h;
 }
 
 #ifndef GC_DISABLE_INCREMENTAL
@@ -2165,7 +2163,7 @@ GC_push_next_marked_dirty(struct hblk *h)
     ABORT("Dirty bits not set up");
   for (;; h += OBJ_SZ_TO_BLOCKS(hhdr->hb_sz)) {
 #   ifdef CHERI_PURECAP
-    INBOUND_CAPABILITY(h);
+    RESOLVE_CAP(h);
 #   endif
     hhdr = HDR(h);
     if (EXPECT(IS_FORWARDING_ADDR_OR_NIL(hhdr) || HBLK_IS_FREE(hhdr), FALSE)) {
@@ -2196,17 +2194,16 @@ GC_push_next_marked_dirty(struct hblk *h)
 #  endif
   /* else */ {
 #   ifdef CHERI_PURECAP
-    INBOUND_CAPABILITY(h);
+    RESOLVE_CAP(h);
 #   endif
     GC_push_marked(h, hhdr);
   }
+
+  h +=OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
 # ifdef CHERI_PURECAP
-  h += OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
-  INBOUND_CAPABILITY(h);
-  return h;
-# else
-  return h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
+  RESOLVE_CAP(h);
 # endif
+  return h;
 }
 #endif /* !GC_DISABLE_INCREMENTAL */
 
@@ -2241,15 +2238,14 @@ GC_push_next_marked_uncollectable(struct hblk *h)
 #endif
     h += OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
 #   ifdef CHERI_PURECAP
-    INBOUND_CAPABILITY(h);
+    RESOLVE_CAP(h);
 #   endif
     hhdr = HDR(h);
   }
+  
+  h +=OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
 # ifdef CHERI_PURECAP
-  h += OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
-  INBOUND_CAPABILITY(h);
-  return h;
-# else
-  return h + OBJ_SZ_TO_BLOCKS(hhdr->hb_sz);
+  RESOLVE_CAP(h);
 # endif
+  return h;
 }
