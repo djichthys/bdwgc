@@ -3479,12 +3479,25 @@ GC_write_fault_handler(struct _EXCEPTION_POINTERS *exc_info)
     }
 
 #    ifdef CHERI_PURECAP
-    hdr *hhdr = HDR(GC_prev_block(h));
-    struct hblk * mh = cheri_address_set(hhdr->hb_block, ADDR(h));
-    UNPROTECT(mh, GC_page_size);
-#    else 
+    if (!VALID_CAPABILITY(h, cheri_base_get(h), cheri_length_get(h))) {
+      hdr *hhdr = HDR(h);
+      if (hhdr != NULL && !IS_FORWARDING_ADDR_OR_NIL(hhdr)) {
+          h = cheri_address_set(hhdr->hb_block, ADDR(h));
+      } else {
+        for (size_t i=0; i < GC_n_heap_sects; i++) {
+          struct hblk *rh = (struct hblk *)GC_heap_sects[i].hs_start;
+          if (cheri_base_get(rh) <= ADDR(h) &&
+	      ADDR(h) < cheri_base_get(rh) + cheri_length_get(rh)) {
+            h = cheri_address_set(rh, cheri_address_get(h));
+	    break;
+	  }
+	}
+      }
+    }
+#    endif
+
     UNPROTECT(h, GC_page_size);
-#    endif 
+
     /* We need to make sure that no collection occurs between       */
     /* the UNPROTECT and the setting of the dirty bit.  Otherwise   */
     /* a write by a third thread might go unnoticed.  Reversing     */
