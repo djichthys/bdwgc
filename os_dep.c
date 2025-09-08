@@ -3650,6 +3650,25 @@ GC_write_fault_handler(struct _EXCEPTION_POINTERS *exc_info)
 #    endif
       }
     }
+
+#    ifdef CHERI_PURECAP
+    if (!VALID_CAPABILITY(h, cheri_base_get(h), cheri_length_get(h))) {
+      hdr *hhdr = HDR(h);
+      if (hhdr != NULL && !IS_FORWARDING_ADDR_OR_NIL(hhdr)) {
+          h = cheri_address_set(hhdr->hb_block, ADDR(h));
+      } else {
+        for (size_t i=0; i < GC_n_heap_sects; i++) {
+          struct hblk *rh = (struct hblk *)GC_heap_sects[i].hs_start;
+          if (cheri_base_get(rh) <= ADDR(h) &&
+	      ADDR(h) < cheri_base_get(rh) + cheri_length_get(rh)) {
+            h = cheri_address_set(rh, cheri_address_get(h));
+	    break;
+	  }
+	}
+      }
+    }
+#    endif
+
     UNPROTECT(h, GC_page_size);
     /*
      * We need to make sure that no collection occurs between the

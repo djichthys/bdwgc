@@ -2608,6 +2608,23 @@ ptr_t GC_save_regs_in_stack(void);
 #  define LOAD_PTR_OR_CONTINUE(v, p) (void)(v = *(ptr_t *)(p))
 #endif /* !CHERI_PURECAP */
 
+#ifdef CHERI_PURECAP
+# define VALID_CAPABILITY(cap, base_addr, len)                              \
+  (cheri_tag_get(cap) && ADDR(cap) >= base_addr                             \
+      && ADDR(cap) < base_addr + (len)                                      \
+      && (cheri_perms_get(cap) & (CHERI_PERM_LOAD | CHERI_PERM_LOAD_CAP))   \
+              != 0)
+
+#define RESOLVE_CAP(h)                                                      \
+    do {                                                                    \
+      if (!VALID_CAPABILITY(h, cheri_base_get(h), cheri_length_get(h))) {   \
+        hdr *hhdr = HDR(h);                                                 \
+        if (hhdr != NULL && !IS_FORWARDING_ADDR_OR_NIL(hhdr))               \
+          (h) = cheri_address_set(hhdr->hb_block, ADDR(h));                 \
+      }                                                                     \
+    } while (0)
+#endif
+
 #if defined(DARWIN) && defined(THREADS)
 /*
  * If `p` points to an object, mark it and push contents on the mark stack.
