@@ -641,6 +641,17 @@ GC_exclude_static_roots(void *b, void *e)
 STATIC void
 GC_push_conditional_with_exclusions(ptr_t bottom, ptr_t top, GC_bool all)
 {
+#ifdef CHERI_PURECAP
+  ptr_t range = NULL;
+  if (SPANNING_CAPABILITY(bottom, ADDR(bottom), ADDR(top))) {
+    range = bottom;
+  } else if (SPANNING_CAPABILITY(top, ADDR(bottom), ADDR(top))) {
+    range = top;
+  } else {
+    ABORT("Capability does not span the entire range");
+  }
+#endif
+
   while (ADDR_LT(bottom, top)) {
     struct exclusion *next = GC_next_exclusion(bottom);
     ptr_t excl_start = top;
@@ -649,14 +660,22 @@ GC_push_conditional_with_exclusions(ptr_t bottom, ptr_t top, GC_bool all)
       if (ADDR_GE(next->e_start, top)) {
         next = NULL;
       } else {
+#ifdef CHERI_PURECAP
+        excl_start = cheri_address_set(range, (ptraddr_t)next->e_start);
+#else
         excl_start = next->e_start;
+#endif
       }
     }
     if (ADDR_LT(bottom, excl_start))
       GC_PUSH_CONDITIONAL(bottom, excl_start, all);
     if (NULL == next)
       break;
+#ifdef CHERI_PURECAP
+    bottom = cheri_address_set(range, (ptraddr_t)next->e_end);
+#else
     bottom = next->e_end;
+#endif
   }
 }
 
