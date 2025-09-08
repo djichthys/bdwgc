@@ -11,9 +11,8 @@
 #include "gc/leak_detector.h"
 
 #ifdef GC_PTHREADS
-#  include <errno.h> /* for EAGAIN */
+#  include <errno.h> /*< for `EAGAIN` */
 #  include <pthread.h>
-#  include <string.h>
 #else
 #  ifndef WIN32_LEAN_AND_MEAN
 #    define WIN32_LEAN_AND_MEAN 1
@@ -77,11 +76,11 @@ main(void)
 #endif
 
 #ifndef NO_FIND_LEAK
-  /* Just in case the code is compiled without FIND_LEAK defined. */
+  /* Just in case the code is compiled without `FIND_LEAK` macro defined. */
   GC_set_find_leak(1);
 #endif
   GC_INIT();
-  /* This is optional if pthread_create() redirected. */
+  /* This is optional if `pthread_create()` is redirected. */
   GC_allow_register_threads();
 
 #if NTHREADS > 0
@@ -90,7 +89,7 @@ main(void)
     int err = pthread_create(t + i, 0, test, 0);
 
     if (err != 0) {
-      fprintf(stderr, "Thread #%d creation failed: %s\n", i, strerror(err));
+      fprintf(stderr, "Thread #%d creation failed, errno= %d\n", i, err);
       if (i > 1 && EAGAIN == err)
         break;
       exit(2);

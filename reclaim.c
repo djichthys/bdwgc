@@ -21,21 +21,17 @@
 #  include "gc/gc_disclaim.h"
 #endif
 
-/* Number of bytes of memory reclaimed minus the number of bytes        */
-/* originally on free lists which we had to drop.                       */
 GC_INNER GC_signed_word GC_bytes_found = 0;
 
-#if defined(PARALLEL_MARK)
-/* Number of threads currently building free lists without holding    */
-/* the allocator lock.  It is not safe to collect if this is nonzero. */
-/* Also, together with the mark lock, it is used as a semaphore       */
-/* during marker threads startup.                                     */
+#ifdef PARALLEL_MARK
 GC_INNER GC_signed_word GC_fl_builder_count = 0;
-#endif /* PARALLEL_MARK */
+#endif
 
-/* We defer printing of leaked objects until we're done with the GC     */
-/* cycle, since the routine for printing objects needs to run outside   */
-/* the collector, e.g. without the allocator lock.                      */
+/*
+ * We defer printing of leaked objects until we are done with the
+ * collection cycle, since the routine for printing objects needs
+ * to run outside the collector, e.g. without the allocator lock.
+ */
 
 #ifndef NO_FIND_LEAK
 #  ifndef MAX_LEAKED
@@ -57,10 +53,12 @@ STATIC void GC_reclaim_unconditionally_marked(void);
 #    define MAX_SMASHED 20
 #  endif
 
-/* List of smashed (clobbered) locations.  We defer printing these,   */
-/* since we cannot always print them nicely with the allocator lock   */
-/* held.  We put them here instead of in GC_arrays, since it may be   */
-/* useful to be able to look at them with the debugger.               */
+/*
+ * List of smashed (clobbered) locations.  We defer printing these,
+ * since we cannot always print them nicely with the allocator lock held.
+ * We put them here instead of in `GC_arrays`, since it may be useful to
+ * be able to look at them with the debugger.
+ */
 STATIC ptr_t GC_smashed[MAX_SMASHED] = { 0 };
 STATIC unsigned GC_n_smashed = 0;
 
@@ -69,10 +67,12 @@ GC_add_smashed(ptr_t smashed)
 {
   GC_ASSERT(I_HOLD_LOCK());
   GC_ASSERT(GC_is_marked(GC_base(smashed)));
-  /* FIXME: Prevent adding an object while printing smashed list.     */
+  /* FIXME: Prevent adding an object while printing smashed list. */
   GC_smashed[GC_n_smashed] = smashed;
-  /* In case of overflow, we keep the first MAX_SMASHED-1 entries     */
-  /* plus the last one.                                               */
+  /*
+   * In case of overflow, we keep the first `MAX_SMASHED - 1` entries
+   * plus the last one.
+   */
   if (GC_n_smashed < MAX_SMASHED - 1)
     ++GC_n_smashed;
   GC_SET_HAVE_ERRORS();
@@ -172,8 +172,6 @@ GC_INNER GC_bool GC_have_errors = FALSE;
 
 GC_INNER GC_bool GC_debugging_started = FALSE;
 
-/* Print all objects on the list after printing any smashed objects.    */
-/* Clear both lists.  Called without the allocator lock held.           */
 GC_INNER void
 GC_print_all_errors(void)
 {
@@ -237,10 +235,8 @@ GC_print_all_errors(void)
 }
 #endif
 
-/* The reclaim phase.   */
+/* The reclaim phase. */
 
-/* Test whether a block is completely empty, i.e. contains no marked    */
-/* objects.  This does not require the block to be in physical memory.  */
 GC_INNER GC_bool
 GC_block_empty(const hdr *hhdr)
 {
@@ -253,8 +249,10 @@ GC_block_nearly_full(const hdr *hhdr, size_t sz)
   return hhdr->hb_n_marks > HBLK_OBJS(sz) * 7 / 8;
 }
 
-/* TODO: This should perhaps again be specialized for USE_MARK_BYTES    */
-/* and USE_MARK_BITS cases.                                             */
+/*
+ * TODO: This should perhaps again be specialized for `USE_MARK_BYTES`
+ * and `USE_MARK_BITS` cases.
+ */
 
 GC_INLINE ptr_t
 GC_clear_block(ptr_t q, size_t sz, word *pcount)
@@ -262,11 +260,11 @@ GC_clear_block(ptr_t q, size_t sz, word *pcount)
   ptr_t *p = (ptr_t *)q;
   ptr_t plim = q + sz;
 
-  /* Clear object, advance p to next object in the process.     */
+  /* Clear object, advance `p` to next object in the process. */
 #ifdef USE_MARK_BYTES
   GC_ASSERT((sz & 1) == 0);
   GC_ASSERT((ADDR(p) & (2 * sizeof(ptr_t) - 1)) == 0);
-  p[1] = NULL; /* but do not clear link field */
+  p[1] = NULL; /*< but do not clear link field */
   for (p += 2; ADDR_LT((ptr_t)p, plim); p += 2) {
     CLEAR_DOUBLE(p);
   }
@@ -282,8 +280,10 @@ GC_clear_block(ptr_t q, size_t sz, word *pcount)
   return (ptr_t)p;
 }
 
-/* Restore unmarked small objects in h of size sz (in bytes) to the     */
-/* object free list.  Returns the new list.  Clears unmarked objects.   */
+/*
+ * Restore unmarked small objects in `h` of size `sz` (in bytes) to the
+ * object free list.  Returns the new list.  Clears unmarked objects.
+ */
 STATIC ptr_t
 GC_reclaim_clear(struct hblk *hbp, const hdr *hhdr, size_t sz, ptr_t list,
                  word *pcount)
@@ -295,7 +295,7 @@ GC_reclaim_clear(struct hblk *hbp, const hdr *hhdr, size_t sz, ptr_t list,
 #ifndef THREADS
   GC_ASSERT(sz == hhdr->hb_sz);
 #else
-  /* Skip the assertion because of a potential race with GC_realloc. */
+  /* Skip the assertion because of a potential race with `GC_realloc`. */
 #endif
   GC_ASSERT((sz & (sizeof(ptr_t) - 1)) == 0);
 
@@ -316,7 +316,7 @@ GC_reclaim_clear(struct hblk *hbp, const hdr *hhdr, size_t sz, ptr_t list,
   return list;
 }
 
-/* The same thing as GC_reclaim_clear, but do not clear objects.        */
+/* The same thing as `GC_reclaim_clear`, but do not clear objects. */
 STATIC ptr_t
 GC_reclaim_uninit(struct hblk *hbp, const hdr *hhdr, size_t sz, ptr_t list,
                   word *pcount)
@@ -346,8 +346,10 @@ GC_reclaim_uninit(struct hblk *hbp, const hdr *hhdr, size_t sz, ptr_t list,
 }
 
 #ifdef ENABLE_DISCLAIM
-/* Call reclaim notifier for block's kind on each unmarked object in  */
-/* block, all within a pair of corresponding enter/leave callbacks.   */
+/*
+ * Call reclaim notifier for block's kind on each unmarked object in block,
+ * all within a pair of corresponding enter/leave callbacks.
+ */
 STATIC ptr_t
 GC_disclaim_and_reclaim(struct hblk *hbp, hdr *hhdr, size_t sz, ptr_t list,
                         word *pcount)
@@ -397,7 +399,7 @@ GC_check_leaked(ptr_t base)
       (*(GC_uintptr_t *)base & 1) != 0 &&
 #    endif
       GC_has_other_debug_info(base) >= 0)
-    return TRUE; /* object has leaked */
+    return TRUE; /*< object has leaked */
 
   /* Validate freed object's content. */
   p = (ptr_t *)(base + sizeof(oh));
@@ -412,7 +414,7 @@ GC_check_leaked(ptr_t base)
       break;
     }
 
-  return FALSE; /* GC_debug_free() has been called */
+  return FALSE; /*< `GC_debug_free()` has been called */
 }
 #  endif /* !SHORT_DBG_HDRS */
 
@@ -433,7 +435,7 @@ GC_add_leaked(ptr_t leaked)
   }
 }
 
-/* Do not really reclaim objects, just check for unmarked ones.     */
+/* Do not really reclaim objects, just check for unmarked ones. */
 STATIC void
 GC_reclaim_check(struct hblk *hbp, const hdr *hhdr, size_t sz)
 {
@@ -454,17 +456,20 @@ GC_reclaim_check(struct hblk *hbp, const hdr *hhdr, size_t sz)
 
 #endif /* !NO_FIND_LEAK */
 
-/* Is a pointer-free block?  Same as IS_PTRFREE() macro but uses    */
-/* unordered atomic access to avoid racing with GC_realloc.         */
+/*
+ * Is a pointer-free block?  Same as `IS_PTRFREE()` macro but uses
+ * unordered atomic access to avoid racing with `GC_realloc`.
+ */
 #ifdef AO_HAVE_load
 #  define IS_PTRFREE_SAFE(hhdr) (AO_load((AO_t *)&(hhdr)->hb_descr) == 0)
 #else
-/* No race as GC_realloc holds the allocator lock when updating hb_descr. */
+/*
+ * No race as `GC_realloc` holds the allocator lock when updating
+ * `hb_descr` field.
+ */
 #  define IS_PTRFREE_SAFE(hhdr) IS_PTRFREE(hhdr)
 #endif
 
-/* Generic procedure to rebuild a free list in hbp.  Also called    */
-/* directly from GC_malloc_many.  sz is in bytes.                   */
 GC_INNER ptr_t
 GC_reclaim_generic(struct hblk *hbp, hdr *hhdr, size_t sz, GC_bool init,
                    ptr_t list, word *pcount)
@@ -498,9 +503,11 @@ GC_reclaim_generic(struct hblk *hbp, hdr *hhdr, size_t sz, GC_bool init,
   return result;
 }
 
-/* Restore unmarked small objects in the block pointed to by hbp to the */
-/* appropriate object free list.  If entirely empty blocks are to be    */
-/* completely deallocated, then caller should perform that check.       */
+/*
+ * Restore unmarked small objects in the block pointed to by `hbp` to
+ * the appropriate object free list.  If entirely empty blocks are to
+ * be completely deallocated, then caller should perform that check.
+ */
 STATIC void
 GC_reclaim_small_nonempty_block(struct hblk *hbp, size_t sz,
                                 GC_bool report_if_found)
@@ -552,16 +559,18 @@ GC_disclaim_and_reclaim_or_free_small_block(struct hblk *hbp)
 }
 #endif /* ENABLE_DISCLAIM */
 
-/* Restore an unmarked large object or an entirely empty blocks of      */
-/* small objects to the heap block free list.  Otherwise enqueue the    */
-/* block for later processing by GC_reclaim_small_nonempty_block.       */
-/* If report_if_found is TRUE, then process any block immediately, and  */
-/* simply report free objects; do not actually reclaim them.            */
+/*
+ * Restore an unmarked large object or an entirely empty block of
+ * small objects to the heap block free list.  Otherwise enqueue the
+ * block for later processing by `GC_reclaim_small_nonempty_block()`.
+ * If `report_if_found` is `TRUE`, then process any block immediately,
+ * and simply report free objects; do not actually reclaim them.
+ */
 STATIC void GC_CALLBACK
 GC_reclaim_block(struct hblk *hbp, void *report_if_found)
 {
   hdr *hhdr;
-  size_t sz; /* size of objects in current block */
+  size_t sz; /*< size of objects in current block */
   struct obj_kind *ok;
 
   GC_ASSERT(I_HOLD_LOCK());
@@ -571,15 +580,17 @@ GC_reclaim_block(struct hblk *hbp, void *report_if_found)
   hhdr = HDR(hbp);
   ok = &GC_obj_kinds[hhdr->hb_obj_kind];
 #ifdef AO_HAVE_load
-  /* Atomic access is used to avoid racing with GC_realloc.       */
+  /* Atomic access is used to avoid racing with `GC_realloc`. */
   sz = AO_load((volatile AO_t *)&hhdr->hb_sz);
 #else
-  /* No race as GC_realloc holds the allocator lock while */
-  /* updating hb_sz.                                      */
+  /*
+   * No race as `GC_realloc` holds the allocator lock while
+   * updating `hb_sz`.
+   */
   sz = hhdr->hb_sz;
 #endif
   if (sz > MAXOBJBYTES) {
-    /* The case of 1 big object.    */
+    /* The case of 1 big object. */
     if (!mark_bit_from_hdr(hhdr, 0)) {
       if (report_if_found) {
         GC_ASSERT(hbp == hhdr->hb_block);
@@ -590,7 +601,7 @@ GC_reclaim_block(struct hblk *hbp, void *report_if_found)
 #ifdef ENABLE_DISCLAIM
         if (EXPECT(hhdr->hb_flags & HAS_DISCLAIM, 0)) {
           if (ok->ok_disclaim_proc(hbp)) {
-            /* Not disclaimed, thus resurrect the object.   */
+            /* Not disclaimed, thus resurrect the object. */
             set_mark_bit_from_hdr(hhdr, 0);
             goto in_use;
           }
@@ -618,12 +629,13 @@ GC_reclaim_block(struct hblk *hbp, void *report_if_found)
     GC_bool empty = GC_block_empty(hhdr);
 
 #ifdef PARALLEL_MARK
-    /* Count can be low or one too high because we sometimes      */
-    /* have to ignore decrements.  Objects can also potentially   */
-    /* be repeatedly marked by each marker.                       */
-    /* Here we assume 3 markers at most, but this is extremely    */
-    /* unlikely to fail spuriously with more.  And if it does, it */
-    /* should be looked at.                                       */
+    /*
+     * Count can be low or one too high because we sometimes have to
+     * ignore decrements.  Objects can also potentially be repeatedly
+     * marked by each marker.  Here we assume 3 markers at most, but
+     * this is extremely unlikely to fail spuriously with more.
+     * And if it does, it should be looked at.
+     */
     GC_ASSERT(sz != 0
               && (GC_markers_m1 > 1 ? 3 : GC_markers_m1 + 1)
                              * (HBLKSIZE / sz + 1)
@@ -633,8 +645,10 @@ GC_reclaim_block(struct hblk *hbp, void *report_if_found)
     GC_ASSERT(sz * hhdr->hb_n_marks <= HBLKSIZE);
 #endif
 #ifdef VALGRIND_TRACKING
-    /* Call GC_free_profiler_hook() on freed objects so that  */
-    /* a profiling tool could track the allocations.          */
+    /*
+     * Call `GC_free_profiler_hook()` on freed objects so that
+     * a profiling tool could track the allocations.
+     */
     {
       ptr_t p = hbp->hb_body;
       ptr_t plim = p + HBLKSIZE - sz;
@@ -649,7 +663,7 @@ GC_reclaim_block(struct hblk *hbp, void *report_if_found)
 #endif
     GC_ASSERT(hbp == hhdr->hb_block);
     if (report_if_found) {
-      GC_reclaim_small_nonempty_block(hbp, sz, TRUE /* report_if_found */);
+      GC_reclaim_small_nonempty_block(hbp, sz, TRUE /* `report_if_found` */);
     } else if (empty) {
 #ifdef ENABLE_DISCLAIM
       if ((hhdr->hb_flags & HAS_DISCLAIM) != 0) {
@@ -662,7 +676,7 @@ GC_reclaim_block(struct hblk *hbp, void *report_if_found)
         FREE_PROFILER_HOOK(hbp);
       }
     } else if (GC_find_leak_inner || !GC_block_nearly_full(hhdr, sz)) {
-      /* Group of smaller objects, enqueue the real work.   */
+      /* Group of smaller objects, enqueue the real work. */
       struct hblk **rlh = ok->ok_reclaim_list;
 
       if (rlh != NULL) {
@@ -671,12 +685,13 @@ GC_reclaim_block(struct hblk *hbp, void *report_if_found)
         *rlh = hbp;
       }
     } else {
-      /* Not worth salvaging.       */
+      /* Not worth salvaging. */
     }
-    /* We used to do the nearly_full check later, but we    */
-    /* already have the right cache context here.  Also     */
-    /* doing it here avoids some silly lock contention in   */
-    /* GC_malloc_many.                                      */
+    /*
+     * We used to do the `GC_block_nearly_full` check later, but we
+     * already have the right cache context here.  Also doing it here
+     * avoids some silly lock contention in `GC_malloc_many()`.
+     */
     if (IS_PTRFREE_SAFE(hhdr)) {
       GC_atomic_in_use += (word)sz * hhdr->hb_n_marks;
     } else {
@@ -686,25 +701,28 @@ GC_reclaim_block(struct hblk *hbp, void *report_if_found)
 }
 
 #if !defined(NO_DEBUGGING)
-/* Routines to gather and print heap block info intended for      */
-/* debugging.  Otherwise should be called with the allocator lock */
-/* held.                                                          */
+/*
+ * Routines to gather and print heap block info intended for debugging.
+ * Otherwise should be called with the allocator lock held.
+ */
 
 struct Print_stats {
   size_t number_of_blocks;
   size_t total_bytes;
 };
 
-EXTERN_C_BEGIN /* to avoid "no previous prototype" clang warning */
+EXTERN_C_BEGIN /*< to avoid "no previous prototype" clang warning */
     unsigned
     GC_n_set_marks(const hdr *);
 EXTERN_C_END
 
 #  ifdef USE_MARK_BYTES
-/* Return the number of set mark bits in the given header.      */
-/* Remains externally visible as used by GNU GCJ currently.     */
-/* There could be a race between GC_clear_hdr_marks and this    */
-/* function but the latter is for a debug purpose.              */
+/*
+ * Return the number of set mark bits in the given header.
+ * Remains externally visible as used by GNU `gcj` currently.
+ * There could be a race between `GC_clear_hdr_marks` and this
+ * function but the latter is for a debug purpose.
+ */
 GC_ATTR_NO_SANITIZE_THREAD
 unsigned
 GC_n_set_marks(const hdr *hhdr)
@@ -718,13 +736,13 @@ GC_n_set_marks(const hdr *hhdr)
     result += (unsigned)hhdr->hb_marks[i];
   }
 
-  /* The one should be set past the end.    */
+  /* The one should be set past the end. */
   GC_ASSERT(hhdr->hb_marks[limit]);
   return result;
 }
 
 #  else
-/* Number of set bits in a word.  Not performance critical.     */
+/* Number of set bits in a word.  Not performance critical. */
 static unsigned
 count_ones(word v)
 {
@@ -744,7 +762,7 @@ GC_n_set_marks(const hdr *hhdr)
   size_t i;
 #    ifdef MARK_BIT_PER_OBJ
   size_t n_objs = HBLK_OBJS(hhdr->hb_sz);
-  size_t n_mark_words = divWORDSZ(n_objs > 0 ? n_objs : 1); /* round down */
+  size_t n_mark_words = divWORDSZ(n_objs > 0 ? n_objs : 1); /*< round down */
 
   for (i = 0; i <= n_mark_words; i++) {
     result += count_ones(hhdr->hb_marks[i]);
@@ -756,22 +774,24 @@ GC_n_set_marks(const hdr *hhdr)
   }
 #    endif
   GC_ASSERT(result > 0);
-  /* Exclude the one bit set past the end.  */
+  /* Exclude the one bit set past the end. */
   result--;
 
 #    ifndef MARK_BIT_PER_OBJ
   if (IS_UNCOLLECTABLE(hhdr->hb_obj_kind)) {
     size_t lg = BYTES_TO_GRANULES(hhdr->hb_sz);
 
-    /* As mentioned in GC_set_hdr_marks(), all the bits are set   */
-    /* instead of every n-th, thus the result should be adjusted. */
+    /*
+     * As mentioned in `GC_set_hdr_marks`, all the bits are set instead of
+     * every `n`-th, thus the result should be adjusted.
+     */
     GC_ASSERT((unsigned)lg != 0 && result % lg == 0);
     result /= (unsigned)lg;
   }
 #    endif
   return result;
 }
-#  endif /* !USE_MARK_BYTES  */
+#  endif /* !USE_MARK_BYTES */
 
 GC_API unsigned GC_CALL
 GC_count_set_marks_in_hblk(const void *p)
@@ -798,7 +818,7 @@ GC_print_block_descr(struct hblk *h, void *raw_ps)
   GC_printf("%u,%u,%u,%u\n", hhdr->hb_obj_kind, (unsigned)sz,
             (unsigned)n_marks, (unsigned)n_objs);
   ps->number_of_blocks++;
-  ps->total_bytes += (sz + HBLKSIZE - 1) & ~(HBLKSIZE - 1); /* round up */
+  ps->total_bytes += (sz + HBLKSIZE - 1) & ~(HBLKSIZE - 1); /*< round up */
 }
 
 void
@@ -835,11 +855,13 @@ GC_print_free_list(int kind, size_t lg)
 }
 #endif /* !NO_DEBUGGING */
 
-/* Clear all obj_link pointers in the list of free objects *flp.        */
-/* Clear *flp.  This must be done before dropping a list of free        */
-/* gcj-style objects, since may otherwise end up with dangling          */
-/* "descriptor" pointers.  It may help for other pointer-containing     */
-/* objects.                                                             */
+/*
+ * Clear all `obj_link` pointers in the list of free objects `*flp`.
+ * Clear `*flp`.  This must be done before dropping a list of free
+ * `gcj`-style objects, since may otherwise end up with dangling
+ * "descriptor" pointers.  It may help for other pointer-containing
+ * objects.
+ */
 STATIC void
 GC_clear_fl_links(void **flp)
 {
@@ -851,8 +873,6 @@ GC_clear_fl_links(void **flp)
   }
 }
 
-/* Perform GC_reclaim_block on the entire heap, after first clearing    */
-/* small-object free lists (if we are not just looking for leaks).      */
 GC_INNER void
 GC_start_reclaim(GC_bool report_if_found)
 {
@@ -862,17 +882,17 @@ GC_start_reclaim(GC_bool report_if_found)
 #if defined(PARALLEL_MARK)
   GC_ASSERT(0 == GC_fl_builder_count);
 #endif
-  /* Reset in-use counters.  GC_reclaim_block recomputes them. */
+  /* Reset in-use counters.  `GC_reclaim_block` recomputes them. */
   GC_composite_in_use = 0;
   GC_atomic_in_use = 0;
 
-  /* Clear reclaim- and free-lists.   */
+  /* Clear reclaim- and free-lists. */
   for (kind = 0; kind < (int)GC_n_kinds; kind++) {
     struct hblk **rlist = GC_obj_kinds[kind].ok_reclaim_list;
     GC_bool should_clobber = GC_obj_kinds[kind].ok_descriptor != 0;
 
     if (NULL == rlist) {
-      /* Means this object kind is not used.        */
+      /* Means this object kind is not used. */
       continue;
     }
 
@@ -896,18 +916,23 @@ GC_start_reclaim(GC_bool report_if_found)
     BZERO(rlist, (MAXOBJGRANULES + 1) * sizeof(void *));
   }
 
-  /* Go through all heap blocks (in hblklist) and reclaim unmarked    */
-  /* objects or enqueue the block for later processing.               */
+  /*
+   * Go through all heap blocks, and reclaim unmarked objects or enqueue
+   * the block for later processing.
+   */
   GC_apply_to_all_blocks(GC_reclaim_block, NUMERIC_TO_VPTR(report_if_found));
 
 #ifdef EAGER_SWEEP
-  /* This is a very stupid thing to do.  We make it possible anyway,  */
-  /* so that you can convince yourself that it really is very stupid. */
+  /*
+   * This is a very stupid thing to do.  We make it possible anyway.
+   */
   GC_reclaim_all((GC_stop_func)0, FALSE);
 #elif defined(ENABLE_DISCLAIM)
-  /* However, make sure to clear reclaimable objects of kinds with    */
-  /* unconditional marking enabled before we do any significant       */
-  /* marking work.                                                    */
+  /*
+   * However, make sure to clear reclaimable objects of kinds with
+   * unconditional marking enabled before we do any significant
+   * marking work.
+   */
   GC_reclaim_unconditionally_marked();
 #endif
 #if defined(PARALLEL_MARK)
@@ -925,7 +950,7 @@ GC_continue_reclaim(size_t lg, int kind)
 
   GC_ASSERT(I_HOLD_LOCK());
   if (NULL == rlh) {
-    /* No blocks of this kind.  */
+    /* No blocks of this kind. */
     return;
   }
 
@@ -936,17 +961,12 @@ GC_continue_reclaim(size_t lg, int kind)
     *rlh = hhdr->hb_next;
     GC_reclaim_small_nonempty_block(hbp, hhdr->hb_sz, FALSE);
     if (*flh != NULL) {
-      /* The appropriate free list is nonempty.   */
+      /* The appropriate free list is nonempty. */
       break;
     }
   }
 }
 
-/* Reclaim all small blocks waiting to be reclaimed.  Abort and return  */
-/* false when/if (*stop_func)() returns true.  If this returns true,    */
-/* then it is safe to restart the world with incorrectly cleared mark   */
-/* bits.  If ignore_old is true, then reclaim only blocks that have     */
-/* been recently reclaimed, and discard the rest.  stop_func may be 0.  */
 GC_INNER GC_bool
 GC_reclaim_all(GC_stop_func stop_func, GC_bool ignore_old)
 {
@@ -977,9 +997,10 @@ GC_reclaim_all(GC_stop_func stop_func, GC_bool ignore_old)
         hhdr = HDR(hbp);
         *rlh = hhdr->hb_next;
         if (!ignore_old || (word)hhdr->hb_last_reclaimed == GC_gc_no - 1) {
-          /* It is likely we will need it this time, too.     */
-          /* It has been touched recently, so this should not */
-          /* trigger paging.                                  */
+          /*
+           * It is likely we will need it this time, too.  It has been
+           * touched recently, so this should not trigger paging.
+           */
           GC_reclaim_small_nonempty_block(hbp, hhdr->hb_sz, FALSE);
         }
       }
@@ -999,10 +1020,12 @@ GC_reclaim_all(GC_stop_func stop_func, GC_bool ignore_old)
 }
 
 #if !defined(EAGER_SWEEP) && defined(ENABLE_DISCLAIM)
-/* We do an eager sweep on heap blocks where unconditional marking has  */
-/* been enabled, so that any reclaimable objects have been reclaimed    */
-/* before we start marking.  This is a simplified GC_reclaim_all        */
-/* restricted to kinds where ok_mark_unconditionally is true.           */
+/*
+ * We do an eager sweep on heap blocks where unconditional marking has
+ * been enabled, so that any reclaimable objects have been reclaimed
+ * before we start marking.  This is a simplified `GC_reclaim_all`
+ * restricted to kinds where `ok_mark_unconditionally` is `TRUE`.
+ */
 STATIC void
 GC_reclaim_unconditionally_marked(void)
 {
@@ -1052,7 +1075,7 @@ GC_do_enumerate_reachable_objects(struct hblk *hbp, void *ed_ptr)
 
   p = hbp->hb_body;
   if (sz > MAXOBJBYTES) {
-    /* The case of 1 big object.        */
+    /* The case of 1 big object. */
     plim = p;
   } else {
     plim = p + HBLKSIZE - sz;

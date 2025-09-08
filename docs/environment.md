@@ -4,8 +4,8 @@ The garbage collector looks at a number of environment variables which are,
 then, used to affect its operation.
 
 `GC_INITIAL_HEAP_SIZE=<bytes>` - Sets initial heap size, in bytes.  May speed
-up process start-up.  Optionally, may be specified with a multiplier ('k', 'M'
-or 'G') suffix.
+up process start-up.  Optionally, may be specified with a multiplier ("k", "M"
+or "G") suffix.
 
 `GC_MAXIMUM_HEAP_SIZE=<bytes>` - Sets maximum heap size, in bytes.
 Optionally, may be specified with a multiplier suffix.
@@ -26,7 +26,7 @@ built with `SMALL_CONFIG` macro defined.
 
 `GC_ONLY_LOG_TO_FILE` - Turns off redirection of `GC_stdout` and `GC_stderr`
 to the log file specified by `GC_LOG_FILE` environment variable.  Has no
-effect unless the later is set; has no effect if the collector is built with
+effect unless the latter is set; has no effect if the collector is built with
 `SMALL_CONFIG` macro defined.
 
 `GC_PRINT_VERBOSE_STATS` - Turns on even more logging.  Has no effect if the
@@ -90,7 +90,7 @@ somewhat experimental, and requires that the collector has been built with
 `MAKE_BACK_GRAPH` macro defined.
 
 `GC_RETRY_SIGNALS` (Pthreads only) - Tries to compensate for lost thread
-suspend and restart signals.  On by default for OSF1 (Tru64) or if the library
+suspend and restart signals.  On by default for Tru64 UNIX or if the library
 is sanitized, off otherwise.  Since we have previously seen similar issues on
 some other operating systems, it was turned into a runtime flag to enable
 last-minute workarounds.  "0" value means "do not retry signals".
@@ -116,7 +116,7 @@ testing.
 
 `GC_ENABLE_INCREMENTAL` - Turns on incremental collection at startup.  Note
 that, depending on platform and collector configuration, this may involve
-write protecting pieces of the heap to track modifications.  These pieces may
+write-protecting pieces of the heap to track modifications.  These pieces may
 include pointer-free objects or not.  This is intended to be transparent, but
 in case of the mprotect-based implementation it may cause unintended system
 call failures (thus, use it with caution).

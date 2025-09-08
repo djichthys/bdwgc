@@ -11,16 +11,17 @@
  * modified is included with the above copyright notice.
  */
 
-/* Check whether setjmp actually saves registers in jmp_buf. */
-/* If it doesn't, the generic mark_regs code won't work.     */
-/* Compilers vary as to whether they will put x in a         */
-/* (callee-save) register without -O.  The code is           */
-/* contrived such that any decent compiler should put x in   */
-/* a callee-save register with -O.  Thus it is               */
-/* recommended that this be run optimized.  (If the machine  */
-/* has no callee-save registers, then the generic code is    */
-/* safe, but this will not be noticed by this piece of       */
-/* code.)  This test appears to be far from perfect.         */
+/*
+ * Check whether `setjmp` actually saves registers in `jmp_buf`.
+ * If it does not, the generic code in `GC_with_callee_saves_pushed`
+ * will not work.  Compilers vary as to whether they will put `x` in
+ * a (callee-save) register without `-O` flag.  The code is contrived
+ * such that any decent compiler should put `x` in a callee-save register
+ * with `-O` flag.  Thus it is recommended that this be run optimized.
+ * (If the machine has no callee-save registers, then the generic code
+ * is safe, but this will not be noticed by this piece of code.)
+ * This test appears to be far from perfect.
+ */
 
 #define NOT_GCBUILD
 #include "private/gc_priv.h"
@@ -33,8 +34,10 @@
 #  define INCL_DOSMISC
 #  include <os2.h>
 
-/* Similar to that in os_dep.c but use fprintf() to report a failure. */
-/* GETPAGESIZE() macro is defined to os2_getpagesize().               */
+/*
+ * Similar to that in `os_dep.c` file but use `fprintf` to report a failure.
+ * `GETPAGESIZE()` macro is defined to `os2_getpagesize()`.
+ */
 static int
 os2_getpagesize(void)
 {
@@ -75,7 +78,7 @@ nested_sp(void)
   return ADDR(sp);
 }
 
-/* To prevent nested_sp inlining. */
+/* To prevent `nested_sp` inlining. */
 word (*volatile nested_sp_fn)(void) = nested_sp;
 
 int g(int x);
@@ -98,14 +101,14 @@ main(void)
   register
 #  endif
       int x
-      = (int)strlen(a_str); /* 1, slightly disguised */
+      = (int)strlen(a_str); /*< 1, slightly disguised */
   static volatile int y = 0;
 #endif
 
   STORE_APPROX_SP_TO(sp);
   printf("This appears to be a %s running %s\n", MACH_TYPE, OS_TYPE);
 #if defined(CPPCHECK)
-  (void)nested_sp(); /* to workaround a bug in cppcheck */
+  (void)nested_sp(); /*< to workaround a bug in cppcheck */
 #endif
   if (nested_sp_fn() < ADDR(sp)) {
     printf("Stack appears to grow down, which is the default.\n");
@@ -114,7 +117,7 @@ main(void)
   } else {
     printf("Stack appears to grow up.\n");
     printf("Define STACK_GROWS_UP in gc_priv.h\n");
-    /* Note: sp is rounded down. */
+    /* Note: `sp` is rounded down. */
     printf("A good guess for STACKBOTTOM on this machine is 0x%lx.\n",
            (unsigned long)ADDR(sp) & ~(unsigned long)(ps - 1));
   }
@@ -127,7 +130,7 @@ main(void)
   printf("The following is a very dubious test of one root marking"
          " strategy.\n");
   printf("Results may not be accurate/useful:\n");
-  /* Encourage the compiler to keep x in a callee-save register */
+  /* Encourage the compiler to keep `x` in a callee-save register. */
   x = 2 * x - 1;
   printf("\n");
   x = 2 * x - 1;

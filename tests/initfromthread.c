@@ -11,8 +11,10 @@
  * modified is included with the above copyright notice.
  */
 
-/* Make sure GC_INIT() can be called from threads other than the        */
-/* initial thread.                                                      */
+/*
+ * Make sure `GC_INIT()` can be called from threads other than the
+ * initial thread.
+ */
 
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
@@ -22,14 +24,13 @@
 #  define GC_THREADS
 #endif
 
-/* Do not redirect thread creation and join calls.      */
+/* Do not redirect thread creation and join calls. */
 #define GC_NO_THREAD_REDIRECTS 1
 
 #include "gc.h"
 
 #ifdef GC_PTHREADS
 #  include <pthread.h>
-#  include <string.h>
 #else
 #  ifndef WIN32_LEAN_AND_MEAN
 #    define WIN32_LEAN_AND_MEAN 1
@@ -93,11 +94,11 @@ main(void)
       || (defined(SOLARIS) && !defined(_STRICT_STDC))                  \
       || ((!defined(SPECIFIC_MAIN_STACKBOTTOM) || defined(HEURISTIC1)) \
           && !defined(STACKBOTTOM)))
-  /* GC_INIT() must be called from main thread only. */
+  /* `GC_INIT()` must be called from main thread only. */
   GC_INIT();
 #endif
 
-  /* Linking fails if no threads support.       */
+  /* Linking fails if no thread support. */
   (void)GC_get_suspend_signal();
 
   if (GC_get_find_leak())
@@ -105,12 +106,12 @@ main(void)
 #ifdef GC_PTHREADS
   err = pthread_create(&t, NULL, thread, NULL);
   if (err != 0) {
-    fprintf(stderr, "Thread #0 creation failed: %s\n", strerror(err));
+    fprintf(stderr, "Thread #0 creation failed, errno= %d\n", err);
     return 1;
   }
   err = pthread_join(t, NULL);
   if (err != 0) {
-    fprintf(stderr, "Thread #0 join failed: %s\n", strerror(err));
+    fprintf(stderr, "Thread #0 join failed, errno= %d\n", err);
     return 1;
   }
 #else

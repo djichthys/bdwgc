@@ -17,9 +17,10 @@
 #if (!defined(GC_PTHREADS) || defined(GC_SOLARIS_THREADS) \
      || defined(__native_client__))                       \
     && !defined(SKIP_THREADKEY_TEST)
-/* FIXME: Skip this test on Solaris for now.  The test may fail on    */
-/* other targets as well.  Currently, tested only on Linux, Cygwin    */
-/* and Darwin.                                                        */
+/*
+ * FIXME: Skip this test on Solaris for now.  The test may fail on other
+ * targets as well.  Currently, tested only on Linux, Cygwin and Darwin.
+ */
 #  define SKIP_THREADKEY_TEST
 #endif
 
@@ -34,13 +35,12 @@ main(void)
 
 #else
 
-#  include <errno.h> /* for EAGAIN */
+#  include <errno.h> /*< for `EAGAIN` */
 #  include <pthread.h>
-#  include <string.h>
 
 pthread_key_t key;
 
-/* TODO: use pthread_once_t on Solaris. */
+/* TODO: Use `pthread_once_t` on Solaris. */
 pthread_once_t key_once = PTHREAD_ONCE_INIT;
 
 static void *
@@ -56,9 +56,7 @@ on_thread_exit_inner(struct GC_stack_base *sb, void *arg)
 {
   int res = GC_register_my_thread(sb);
   pthread_t t;
-  /* This is used to suppress a warning about unchecked                 */
-  /* pthread_create() result.                                           */
-  int creation_res;
+  int creation_res; /*< to suppress a warning about unchecked result */
   pthread_attr_t attr;
 
   if (pthread_attr_init(&attr) != 0
@@ -105,7 +103,7 @@ main(void)
   GC_INIT();
   if (GC_get_find_leak())
     printf("This test program is not designed for leak detection mode\n");
-  /* TODO: call make_key() instead on Solaris. */
+  /* TODO: Call `make_key()` instead on Solaris. */
   pthread_once(&key_once, make_key);
 
   for (i = 0; i < NTHREADS_INNER; i++) {
@@ -114,7 +112,7 @@ main(void)
     int err = GC_pthread_create(&t, NULL, entry, NULL);
 
     if (err != 0) {
-      fprintf(stderr, "Thread #%d creation failed: %s\n", i, strerror(err));
+      fprintf(stderr, "Thread #%d creation failed, errno= %d\n", i, err);
       if (i > 0 && EAGAIN == err)
         break;
       exit(2);
@@ -123,13 +121,13 @@ main(void)
     if ((i & 1) != 0) {
       err = GC_pthread_join(t, &res);
       if (err != 0) {
-        fprintf(stderr, "Thread #%d join failed: %s\n", i, strerror(err));
+        fprintf(stderr, "Thread #%d join failed, errno= %d\n", i, err);
         exit(2);
       }
     } else {
       err = GC_pthread_detach(t);
       if (err != 0) {
-        fprintf(stderr, "Thread #%d detach failed: %s\n", i, strerror(err));
+        fprintf(stderr, "Thread #%d detach failed, errno= %d\n", i, err);
         exit(2);
       }
     }

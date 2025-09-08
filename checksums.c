@@ -15,8 +15,11 @@
 
 #ifdef CHECKSUMS
 
-/* This is debugging code intended to verify the results of dirty bit   */
-/* computations.  Works only in a single threaded environment.          */
+/*
+ * This is debugging code intended to verify the results of dirty bit
+ * computations.  Currently works only in a single-threaded environment.
+ */
+
 #  define NSUMS 10000
 #  define OFFSET 0x10000
 
@@ -25,14 +28,16 @@ typedef struct {
   word old_sum;
   word new_sum;
 
-  /* Block to which this refers plus OFFSET to hide it from the   */
-  /* garbage collector.                                           */
+  /*
+   * Block to which this refers plus `OFFSET` to hide it from the
+   * garbage collector.
+   */
   struct hblk *block;
 } page_entry;
 
 page_entry GC_sums[NSUMS];
 
-/* Record of pages on which we saw a write fault.       */
+/* Record of pages on which we saw a write fault. */
 STATIC word GC_faulted[NSUMS] = { 0 };
 
 STATIC size_t GC_n_faulted = 0;
@@ -71,7 +76,7 @@ GC_checksum(struct hblk *h)
   for (p = (word *)h; ADDR_LT((ptr_t)p, (ptr_t)lim); p++) {
     result += *p;
   }
-  return result | SIGNB; /* does not look like pointer */
+  return result | SIGNB; /*< does not look like pointer */
 }
 
 int GC_n_dirty_errors = 0;
@@ -108,7 +113,8 @@ GC_update_check_page(struct hblk *h, int index)
         && !IS_PTRFREE(hhdr) && pe->old_sum != pe->new_sum) {
       if (!GC_page_was_dirty(h) || !GC_page_was_ever_dirty(h)) {
         GC_bool was_faulted = GC_was_faulted(h);
-        /* Set breakpoint here */ GC_n_dirty_errors++;
+
+        GC_n_dirty_errors++; /*< set breakpoint here */
         if (was_faulted)
           GC_n_faulted_dirty_errors++;
       }
@@ -118,7 +124,7 @@ GC_update_check_page(struct hblk *h, int index)
   pe->block = h + OFFSET;
 }
 
-/* Should be called immediately after GC_read_dirty.    */
+/* Should be called immediately after `GC_read_dirty`. */
 void
 GC_check_dirty(void)
 {
@@ -153,7 +159,7 @@ GC_check_dirty(void)
                   GC_n_dirty_errors, GC_n_faulted_dirty_errors);
   }
   for (i = 0; i < GC_n_faulted; ++i) {
-    /* Do not expose block addresses to the garbage collector.      */
+    /* Do not expose block addresses to the garbage collector. */
     GC_faulted[i] = 0;
   }
   GC_n_faulted = 0;

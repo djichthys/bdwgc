@@ -1,4 +1,4 @@
-[Interface Overview](gcinterface.md) | [Tutorial Slides](http://www.hboehm.info/gc/04tutorial.pdf) | [FAQ](faq.md) | [Example](simple_example.md) | [Download](https://github.com/ivmai/bdwgc/wiki/Download)
+[Interface Overview](gcinterface.md) | [Tutorial Slides](http://www.hboehm.info/gc/04tutorial.pdf) | [FAQ](faq.md) | [Example](simple_example.md) | [Download](https://github.com/bdwgc/bdwgc/wiki/Download)
 ---|---|---|---|---
 
 # A garbage collector for C and C++
@@ -35,13 +35,13 @@ Alternatively, the garbage collector may be used as a [leak detector](leak.md)
 for C or C++ programs, though that is not its primary goal.
 
 Typically several versions are offered for
-[downloading](https://github.com/ivmai/bdwgc/wiki/Download): preview, stable,
+[downloading](https://github.com/bdwgc/bdwgc/wiki/Download): preview, stable,
 legacy. Usually you should use the one marked as the _latest stable_ release.
 Preview versions may contain additional features, platform support, but are
 likely to be less well tested. The list of changes for each version
-is specified on the [releases](https://github.com/ivmai/bdwgc/releases) page.
+is specified on the [releases](https://github.com/bdwgc/bdwgc/releases) page.
 The development version (snapshot) is available in the master branch of
-[bdwgc git](https://github.com/ivmai/bdwgc) repository on GitHub.
+[bdwgc git](https://github.com/bdwgc/bdwgc) repository on GitHub.
 
 The arguments for and against conservative garbage collection in C and C++ are
 briefly discussed [here](http://www.hboehm.info/gc/issues.html).
@@ -67,11 +67,12 @@ with `GC_realloc` calls, and removing `free` calls. Exceptions are discussed
 The collector is not completely portable, but the distribution includes ports
 to most standard PC and UNIX/Linux platforms. The collector should work
 on Linux, Android, BSD variants, OS/2, Windows (Win32 and Win64), MacOS X,
-iOS, HP/UX, Solaris, Tru64, Irix, Symbian and other operating systems. Some
-platforms are more polished (better supported) than others.
+iOS, HP/UX, Solaris, Tru64 (OSF/1), Irix, Symbian and other operating systems.
+Some platforms are more polished (better supported) than others.
 
-Irix pthreads, Linux threads, Windows threads, Solaris threads (pthreads
-only), HP/UX 11 pthreads, Tru64 pthreads, and MacOS X threads are supported.
+Irix `pthreads`, Linux threads, Windows threads, Solaris threads (`pthreads`
+only), HP/UX 11 `pthreads`, Tru64 `pthreads`, and MacOS X threads are
+supported.
 
 See also [here](porting.md) for the instructions on how to port the library to
 new platforms.
@@ -80,20 +81,20 @@ new platforms.
 
 The collector uses a [mark-sweep](http://www.hboehm.info/gc/complexity.html)
 algorithm. It provides incremental and generational collection under operating
-systems which provide the right kind of virtual memory support. (Currently
-this includes SunOS[45], IRIX, OSF/1, Linux, and Windows, with varying
+systems that provide the right kind of virtual memory support. (Currently this
+includes SunOS 4.x and 5.x, IRIX, Tru64 UNIX, Linux, and Windows, with varying
 restrictions.) It allows [finalization](finalization.md) code to be invoked
 when an object is collected. It can take advantage of type information
 to locate pointers if such information is provided, but it is usually used
-without such information. See the README and `gc.h` files in the distribution
-for more details.
+without such information. See the `README` and `gc.h` files in the
+distribution for more details.
 
 For an overview of the implementation, see [here](gcdescr.md).
 
-The garbage collector distribution includes a C string (`cord.h`) package that
-provides for fast concatenation and substring operations on long strings.
-A simple curses- and Windows-based editor that represents the entire file as
-a cord is included as a sample application.  See [cords.md](cords.md)
+The garbage collector distribution includes a C string (`cord.h` file) package
+that provides for fast concatenation and substring operations on long strings.
+A simple `curses`-based and Windows-based editor that represents the entire
+file as a cord is included as a sample application.  See [cords.md](cords.md)
 file for the details.
 
 Performance of the non-incremental collector is typically competitive with
@@ -220,7 +221,7 @@ Slides for Hans Boehm's
 
 ## Information provided on the BDWGC site
 
-[Known BDWGC users](https://github.com/ivmai/bdwgc/wiki/Known-clients) list.
+[Known BDWGC users](https://github.com/bdwgc/bdwgc/wiki/Known-clients) list.
 
 Tutorial slides from an ISMM 2004:
 [The Boehm-Demers-Weiser Conservative Garbage Collector](http://www.hboehm.info/gc/04tutorial.pdf).
@@ -229,7 +230,7 @@ Tutorial slides from an ISMM 2004:
 
 [Directory](http://www.hboehm.info/gc/gc_source/) containing the distribution
 files of all garbage collector releases.  It duplicates
-[Download](https://github.com/ivmai/bdwgc/wiki/Download) page on GitHub.
+[Download](https://github.com/bdwgc/bdwgc/wiki/Download) page on GitHub.
 
 ## Documentation files
 
@@ -241,7 +242,7 @@ The following documents are not platform-specific in general.
 
 [How to use the garbage collector as a leak detector](leak.md).
 
-[Some hints on debugging garbage collected applications](debugging.md).
+[Some hints on debugging garbage-collected applications](debugging.md).
 
 [An overview of the implementation of the garbage collector](gcdescr.md).
 
@@ -309,28 +310,28 @@ to [Stack Overflow](https://stackoverflow.com/questions/tagged/boehm-gc) with
 _boehm-gc_ tag.
 
 To contribute, please rebase your code to the latest
-[master](https://github.com/ivmai/bdwgc/tree/master/) and submit
-a [pull request](https://github.com/ivmai/bdwgc/pulls) to GitHub.
+[master](https://github.com/bdwgc/bdwgc/tree/master/) and submit
+a [pull request](https://github.com/bdwgc/bdwgc/pulls) to GitHub.
 
 To report a bug, or propose (request) a new feature, create
-a [GitHub issue](https://github.com/ivmai/bdwgc/issues). Please make sure
+a [GitHub issue](https://github.com/bdwgc/bdwgc/issues). Please make sure
 it has not been reported yet by someone else.
 
 To receive notifications on every release, please subscribe to
-[Releases RSS feed](https://github.com/ivmai/bdwgc/releases.atom).
+[Releases RSS feed](https://github.com/bdwgc/bdwgc/releases.atom).
 Notifications on all issues and pull requests are available
-by [watching](https://github.com/ivmai/bdwgc/watchers) the project.
+by [watching](https://github.com/bdwgc/bdwgc/watchers) the project.
 
 Mailing lists (bdwgc-announce@lists.opendylan.org, bdwgc@lists.opendylan.org,
 and the former gc-announce@linux.hpl.hp.com and gc@linux.hpl.hp.com) are not
 used at this moment. Their content is available
 in
-[bdwgc-announce](https://github.com/ivmai/bdwgc/files/1037650/bdwgc-announce-mailing-list-archive-2014_02.tar.gz)
+[bdwgc-announce](https://github.com/bdwgc/bdwgc/files/1037650/bdwgc-announce-mailing-list-archive-2014_02.tar.gz)
 and
-[bdwgc](https://github.com/ivmai/bdwgc/files/1038163/bdwgc-mailing-list-archive-2017_04.tar.gz)
+[bdwgc](https://github.com/bdwgc/bdwgc/files/1038163/bdwgc-mailing-list-archive-2017_04.tar.gz)
 archive files, respectively. The gc list archive may also be read
 at [Narkive](http://bdwgc.opendylan.narkive.com).
 
-Some prior discussion of the collector has taken place on the gcc java mailing
+Some prior discussion of the collector has taken place on the GCC Java mailing
 list, whose archives appear [here](http://gcc.gnu.org/ml/java/), and also
 on [gclist@iecc.com](http://lists.tunes.org/mailman/listinfo/gclist).

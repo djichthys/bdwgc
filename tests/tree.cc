@@ -1,6 +1,7 @@
 
-// The program tests part of the C++ functionality provided by gc_cpp.h (and
-// gctba library) by creating balanced trees of various depth and arity.
+// The program tests part of the C++ functionality provided by `gc_cpp.h`
+// file (and `gctba` library) by creating balanced trees of various depth
+// and arity.
 
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
@@ -112,7 +113,7 @@ Tree::verify_node(int a, int d)
   }
   if (0 == depth) {
     if (m_nodes != 0) {
-      fprintf(stderr, "Found non-empty node!\n");
+      fprintf(stderr, "Found nonempty node!\n");
       exit(1);
     }
   } else if (0 == m_nodes) {
@@ -175,7 +176,7 @@ main(void)
   keep_tree->verify();
   create_trees(is_find_leak, false);
   create_trees(is_find_leak, true);
-  keep_tree->verify(); // recheck
+  keep_tree->verify(); /*< recheck */
   if (is_find_leak)
     delete keep_tree;
   printf("SUCCEEDED\n");

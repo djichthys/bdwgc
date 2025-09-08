@@ -19,23 +19,27 @@
  * This is incredibly OS specific code for tracking down data sections in
  * dynamic libraries.  There appears to be no way of doing this quickly
  * without groveling through undocumented data structures.  We would argue
- * that this is a bug in the design of the dlopen interface.  THIS CODE
- * MAY BREAK IN FUTURE OS RELEASES.  If this matters to you, don't hesitate
- * to let your vendor know ...
+ * that this is a bug in the design of the `dlopen` interface.  This code
+ * may break in future OS releases.  If this matters to you, do not hesitate
+ * to let your vendor know...
  *
  * None of this is safe with dlclose and incremental collection.
  * But then not much of anything is safe in the presence of dlclose.
  */
 
-/* BTL: avoid circular redefinition of dlopen if SOLARIS+THREADS defined */
+/*
+ * BTL: avoid circular redefinition of `dlopen` if `SOLARIS` and `THREADS`
+ * are both defined.
+ */
 #undef GC_MUST_RESTORE_REDEFINED_DLOPEN
 #if defined(GC_PTHREADS) && !defined(GC_NO_DLOPEN) \
     && !defined(GC_NO_THREAD_REDIRECTS) && !defined(GC_USE_LD_WRAP)
-/* To support threads in Solaris, gc.h interposes on dlopen by        */
-/* defining "dlopen" to be "GC_dlopen", which is implemented below.   */
-/* However, both GC_FirstDLOpenedLinkMap() and GC_dlopen() use the    */
-/* real system dlopen() in their implementation. We first remove      */
-/* gc.h's dlopen definition and restore it later, after GC_dlopen().  */
+/*
+ * To support threads in Solaris, `gc.h` file interposes on `dlopen` by
+ * defining `dlopen` to be `GC_dlopen`.  `GC_FirstDLOpenedLinkMap()` needs
+ * to use the real system `dlopen()`, thus we first undo `dlopen` definition
+ * by `gc.h` file and restore it at the end of the current file.
+ */
 #  undef dlopen
 #  define GC_MUST_RESTORE_REDEFINED_DLOPEN
 #endif /* !GC_NO_DLOPEN */
@@ -45,15 +49,19 @@
 #  error Fix mutual exclusion with dlopen
 #endif
 
-/* A user-supplied routine (custom filter) that might be called to      */
-/* determine whether a DSO really needs to be scanned by the GC.        */
-/* 0 means no filter installed.  May be unused on some platforms.       */
-/* FIXME: Add filter support for more platforms.                        */
+/*
+ * A user-supplied routine (custom filter) that might be called to
+ * determine whether a DSO really needs to be scanned by the collector.
+ * Zero means no filter installed.  May be unused on some platforms.
+ */
+/* FIXME: Add filter support for more platforms. */
 STATIC GC_has_static_roots_func GC_has_static_roots = 0;
 
 #ifdef ANY_MSWIN
-/* We traverse the entire address space and register all segments     */
-/* that could possibly have been written to.                          */
+/*
+ * We traverse the entire address space and register all segments that
+ * could possibly have been written to.
+ */
 STATIC void
 GC_cond_add_roots(ptr_t base, ptr_t limit)
 {
@@ -82,7 +90,7 @@ GC_cond_add_roots(ptr_t base, ptr_t limit)
   stack_top
       = PTR_ALIGN_DOWN(GC_approx_sp(), GC_sysinfo.dwAllocationGranularity);
   if (ADDR_LT(stack_top, limit) && ADDR_LT(base, GC_stackbottom)) {
-    /* Part of the stack; ignore it.      */
+    /* Part of the stack; ignore it. */
     return;
   }
   GC_add_roots_inner(base, limit, TRUE);
@@ -117,12 +125,14 @@ GC_dump_meminfo(MEMORY_BASIC_INFORMATION *buf)
 #  endif /* DEBUG_VIRTUALQUERY */
 
 #  if defined(MSWINCE) || defined(CYGWIN32)
-/* FIXME: Should we really need to scan MEM_PRIVATE sections?       */
-/* For now, we don't add MEM_PRIVATE sections to the data roots for */
-/* WinCE because otherwise SEGV fault sometimes happens to occur in */
-/* GC_mark_from() (and, even if we use WRAP_MARK_SOME, WinCE prints */
-/* a "Data Abort" message to the debugging console).                */
-/* To workaround that, use -DGC_REGISTER_MEM_PRIVATE.               */
+/* FIXME: Should we really need to scan `MEM_PRIVATE` sections? */
+/*
+ * For now, we do not add `MEM_PRIVATE` sections to the data roots for
+ * WinCE because otherwise `SIGSEGV` fault sometimes happens to occur
+ * in `GC_mark_from()` (and, even if we use `WRAP_MARK_SOME`, WinCE
+ * prints a "Data Abort" message to the debugging console).
+ * To workaround that, use `-D GC_REGISTER_MEM_PRIVATE`.
+ */
 #    define GC_wnt TRUE
 #  endif
 
@@ -144,8 +154,10 @@ GC_register_dynamic_libraries(void)
 
 #  ifdef MSWINCE
     if (0 == result) {
-      if (ADDR(p) > GC_WORD_MAX - GC_sysinfo.dwAllocationGranularity)
-        break; /* overflow */
+      if (ADDR(p) > GC_WORD_MAX - GC_sysinfo.dwAllocationGranularity) {
+        /* An overflow. */
+        break;
+      }
       /* Page is free; advance to the next possible allocation base. */
       p = PTR_ALIGN_UP(p + 1, GC_sysinfo.dwAllocationGranularity);
     } else
@@ -155,8 +167,10 @@ GC_register_dynamic_libraries(void)
 
       if (result != sizeof(buf))
         ABORT("Weird VirtualQuery result");
-      if (ADDR(p) > GC_WORD_MAX - buf.RegionSize)
-        break; /* overflow */
+      if (ADDR(p) > GC_WORD_MAX - buf.RegionSize) {
+        /* An overflow. */
+        break;
+      }
 
       protect = buf.Protect;
       if (buf.State == MEM_COMMIT
@@ -167,10 +181,11 @@ GC_register_dynamic_libraries(void)
 #  ifdef GC_REGISTER_MEM_PRIVATE
               || (protect == PAGE_READWRITE && buf.Type == MEM_PRIVATE)
 #  else
-              /* There is some evidence that we cannot always   */
-              /* ignore MEM_PRIVATE sections under Windows ME   */
-              /* and predecessors.  Hence we now also check for */
-              /* that case.                                     */
+              /*
+               * There is some evidence that we cannot always ignore
+               * `MEM_PRIVATE` sections under Windows ME and predecessors.
+               * Hence we now also check for that case.
+               */
               || (!GC_wnt && buf.Type == MEM_PRIVATE)
 #  endif
                   )
@@ -190,7 +205,7 @@ GC_register_dynamic_libraries(void)
   GC_cond_add_roots(base, limit);
 }
 
-#elif defined(DYNAMIC_LOADING) /* && !ANY_MSWIN */
+#elif defined(DYNAMIC_LOADING) /* `&& !ANY_MSWIN` */
 
 #  if !(defined(CPPCHECK) || defined(AIX) || defined(DARWIN) || defined(DGUX) \
         || defined(IRIX5) || defined(HAIKU) || defined(HPUX) || defined(HURD) \
@@ -231,17 +246,24 @@ GC_register_dynamic_libraries(void)
       || ((defined(ANY_BSD) || defined(LINUX)) && defined(__ELF__))
 #    include <stddef.h>
 #    if !defined(OPENBSD) && !defined(HOST_ANDROID)
-/* OpenBSD does not have elf.h file; link.h below is sufficient.    */
-/* Exclude Android because linker.h below includes its own version. */
+/*
+ * OpenBSD does not have platform `elf.h` file; include `link.h` file below
+ * is sufficient.  Exclude this on Android because platform `linker.h` file
+ * below includes its own variant.
+ */
 #      include <elf.h>
 #    endif
 #    ifdef HOST_ANDROID
-/* If you don't need the "dynamic loading" feature, you may build   */
-/* the collector with -D IGNORE_DYNAMIC_LOADING.                    */
+/*
+ * If you do not need the "dynamic loading" feature, you may build the
+ * collector with `-D IGNORE_DYNAMIC_LOADING`.
+ */
 #      ifdef BIONIC_ELFDATA_REDEF_BUG
-/* Workaround a problem in Bionic (as of Android 4.2) which has   */
-/* mismatching ELF_DATA definitions in sys/exec_elf.h and         */
-/* asm/elf.h included from linker.h file (similar to EM_ALPHA).   */
+/*
+ * Workaround a problem in Bionic (as of Android 4.2) which has mismatching
+ * `ELF_DATA` definitions in platform `sys/exec_elf.h` and `asm/elf.h` files
+ * included from `linker.h` file (similar to `EM_ALPHA`).
+ */
 #        include <asm/elf.h>
 #        include <linux/elf-em.h>
 #        undef ELF_DATA
@@ -253,9 +275,11 @@ GC_register_dynamic_libraries(void)
           && !(__ANDROID_API__ >= 21))                               \
          || defined(SERENITY))                                       \
         && !defined(USE_PROC_FOR_LIBRARIES)
-/* link_map and r_debug are defined in link.h of NDK r10+.        */
-/* bionic/linker/linker.h defines them too but the header         */
-/* itself is a C++ one starting from Android 4.3.                 */
+/*
+ * `link_map` and `r_debug` are defined in `link.h` file of NDK r10+.
+ * `bionic/linker/linker.h` file defines them too but the header itself
+ * is a C++ one starting from Android 4.3.
+ */
 struct link_map {
   uintptr_t l_addr;
   char *l_name;
@@ -266,23 +290,27 @@ struct link_map {
 struct r_debug {
   int32_t r_version;
   struct link_map *r_map;
-  /* void (*r_brk)(void); */
-  /* int32_t r_state; */
-  /* uintptr_t r_ldbase; */
+  /* `void (*r_brk)(void);` */
+  /* `int32_t r_state;` */
+  /* `uintptr_t r_ldbase;` */
 };
 #      define LINK_MAP_R_DEBUG_DEFINED
 #    endif /* __ANDROID_API__ >= 21 || SERENITY */
 #    ifndef HOST_ANDROID
-/* Workaround missing extern "C" around _DYNAMIC symbol in link.h   */
-/* of some Linux hosts.                                             */
+/*
+ * Workaround missing `extern "C"` around `_DYNAMIC` symbol in platform
+ * `link.h` file of some Linux hosts.
+ */
 EXTERN_C_BEGIN
 #      include <link.h>
 EXTERN_C_END
 #    endif /* !HOST_ANDROID */
 #  endif
 
-/* Newer versions of GNU/Linux define this macro.  We define it         */
-/* similarly for any ELF systems that do not.                           */
+/*
+ * Newer versions of GNU/Linux define this macro.  We define it similarly
+ * for all ELF systems that do not.
+ */
 #  ifndef ElfW
 #    if defined(FREEBSD)
 #      if __ELF_WORD_SIZE == 32
@@ -319,12 +347,13 @@ EXTERN_C_END
 
 #      define MAPS_BUF_SIZE (32 * 1024)
 
-/* Sort an array of HeapSects by start address.                         */
-/* Unfortunately at least some versions of                              */
-/* Linux qsort end up calling malloc by way of sysconf, and hence can't */
-/* be used in the collector.  Hence we roll our own.  Should be         */
-/* reasonably fast if the array is already mostly sorted, as we expect  */
-/* it to be.                                                            */
+/*
+ * Sort an array of `HeapSects` elements by `hs_start` value.
+ * Unfortunately, at least some versions of Linux, `qsort` end up calling
+ * `malloc` by way of `sysconf`, and hence cannot be used in the collector.
+ * Hence we roll our own.  Should be reasonably fast if the array is
+ * already mostly sorted, as we expect it to be.
+ */
 static void
 sort_heap_sects(struct HeapSect *base, size_t number_of_elements)
 {
@@ -375,58 +404,62 @@ GC_register_map_entries(const char *maps)
       break;
 
     if (prot[1] == 'w') {
-      /* This is a writable mapping.  Add it to           */
-      /* the root set unless it is already otherwise      */
-      /* accounted for.                                   */
+      /*
+       * This is a writable mapping.  Add it to the root set unless
+       * it is already otherwise accounted for.
+       */
 #      ifndef THREADS
       if (ADDR_GE(GC_stackbottom, my_start)
           && ADDR_GE(my_end, GC_stackbottom)) {
-        /* Stack mapping; discard it.   */
+        /* Stack mapping; discard it. */
         continue;
       }
 #      endif
 #      if defined(E2K) && defined(__ptr64__)
-      /* TODO: avoid hard-coded addresses */
+      /* TODO: Avoid hard-coded addresses. */
       if (ADDR(my_start) == 0xc2fffffff000UL
-          && ADDR(my_end) == 0xc30000000000UL && path[0] == '\n')
-        continue; /* discard some special mapping */
+          && ADDR(my_end) == 0xc30000000000UL && path[0] == '\n') {
+        /* Discard some special mapping. */
+        continue;
+      }
 #      endif
-      if (path[0] == '[' && strncmp(path + 1, "heap]", 5) != 0)
-        continue; /* discard a pseudo-file path unless "[heap]" */
+      if (path[0] == '[' && strncmp(path + 1, "heap]", 5) != 0) {
+        /* Discard a pseudo-file path except for "[heap]". */
+        continue;
+      }
 
 #      ifdef THREADS
-      /* This may fail, since a thread may already be           */
-      /* unregistered, but its thread stack may still be there. */
-      /* That can fail because the stack may disappear while    */
-      /* we're marking.  Thus the marker is, and has to be      */
-      /* prepared to recover from segmentation faults.          */
+      /*
+       * This may fail, since a thread may already be unregistered, but
+       * its thread stack may still be there.  That can fail because the
+       * stack may disappear while we are marking.  Thus the marker is,
+       * and has to be prepared to recover from segmentation faults.
+       */
 
       if (GC_segment_is_thread_stack(my_start, my_end)) {
         continue;
-        /* FIXME: NPTL squirrels                                */
-        /* away pointers in pieces of the stack segment that we */
-        /* don't scan.  We work around this                     */
-        /* by treating anything allocated by libpthread as      */
-        /* uncollectible, as we do in some other cases.         */
-        /* A specifically identified problem is that            */
-        /* thread stacks contain pointers to dynamic thread     */
-        /* vectors, which may be reused due to thread caching.  */
-        /* They may not be marked if the thread is still live.  */
-        /* This specific instance should be addressed by        */
-        /* INCLUDE_LINUX_THREAD_DESCR, but that doesn't quite   */
-        /* seem to suffice.                                     */
-        /* We currently trace entire thread stacks, if they are */
-        /* are currently cached but unused.  This is            */
-        /* very suboptimal for performance reasons.             */
+        /*
+         * FIXME: NPTL squirrels away pointers in pieces of the stack
+         * segment that we do not scan.  We work around this by treating
+         * anything allocated by `libpthread` as uncollectible, as we do
+         * in some other cases.  A specifically identified problem is that
+         * thread stacks contain pointers to dynamic thread vectors, that
+         * may be reused due to thread caching.  They may not be marked
+         * if the thread is still live.  This specific instance should be
+         * addressed by `INCLUDE_LINUX_THREAD_DESCR`, but that does not
+         * quite seem to suffice.  We currently trace entire thread stacks,
+         * if they are are currently cached but unused.  This is very
+         * suboptimal for performance reasons.
+         */
       }
 #      endif
-      /* We no longer exclude the main data segment.              */
+      /* We no longer exclude the main data segment. */
       if (ADDR_GE(least_ha, my_end) || ADDR_GE(my_start, greatest_ha)) {
-        /* The easy case; just trace the entire segment.  */
+        /* The easy case; just trace the entire segment. */
         GC_add_roots_inner(my_start, my_end, TRUE);
         continue;
       }
-      /* Add sections that don't belong to us. */
+      /* Add sections that do not belong to us. */
       i = 0;
       while (ADDR_LT(GC_our_memory[i].hs_start + GC_our_memory[i].hs_bytes,
                      my_start)) {
@@ -447,8 +480,10 @@ GC_register_map_entries(const char *maps)
       if (ADDR_LT(my_start, my_end))
         GC_add_roots_inner(my_start, my_end, TRUE);
     } else if (prot[0] == '-' && prot[1] == '-' && prot[2] == '-') {
-      /* Even roots added statically might disappear partially    */
-      /* (e.g. the roots added by INCLUDE_LINUX_THREAD_DESCR).    */
+      /*
+       * Even roots added statically might disappear partially
+       * (e.g. the roots added by `INCLUDE_LINUX_THREAD_DESCR`).
+       */
       GC_remove_roots_subregion(my_start, my_end);
     }
   }
@@ -470,9 +505,10 @@ GC_register_main_static_data(void)
 
 #    else /* !USE_PROC_FOR_LIBRARIES */
 
-/* The following is the preferred way to walk dynamic libraries */
-/* for glibc 2.2.4+.  Unfortunately, it doesn't work for older  */
-/* versions.  Thanks to Jakub Jelinek for most of the code.     */
+/*
+ * The following is the preferred way to walk dynamic libraries for
+ * `glibc` 2.2.4+.  Unfortunately, it does not work for older versions.
+ */
 
 #      if GC_GLIBC_PREREQ(2, 3) || defined(HOST_ANDROID)
 /* Are others OK here, too? */
@@ -480,7 +516,7 @@ GC_register_main_static_data(void)
 #          define HAVE_DL_ITERATE_PHDR
 #        endif
 #        ifdef HOST_ANDROID
-/* Android headers might have no such definition for some targets.  */
+/* Android headers might have no such definition for some targets. */
 EXTERN_C_BEGIN
 extern int dl_iterate_phdr(int (*cb)(struct dl_phdr_info *, size_t, void *),
                            void *data);
@@ -490,16 +526,20 @@ EXTERN_C_END
 
 #      if defined(__DragonFly__) || defined(__FreeBSD_kernel__) \
           || (defined(FREEBSD) && __FreeBSD__ >= 7)
-/* On the FreeBSD system, any target system at major version 7 shall   */
-/* have dl_iterate_phdr; therefore, we need not make it weak as below. */
+/*
+ * On the FreeBSD system, any target system at major version 7 shall have
+ * `dl_iterate_phdr`; therefore, we need not make it weak as below.
+ */
 #        ifndef HAVE_DL_ITERATE_PHDR
 #          define HAVE_DL_ITERATE_PHDR
 #        endif
 #        define DL_ITERATE_PHDR_STRONG
 #      elif defined(HAVE_DL_ITERATE_PHDR)
-/* We have the header files for a glibc that includes dl_iterate_phdr.*/
-/* It may still not be available in the library on the target system. */
-/* Thus we also treat it as a weak symbol.                            */
+/*
+ * We have the header files for a `glibc` that includes `dl_iterate_phdr`.
+ * It may still not be available in the library on the target system.
+ * Thus we also treat it as a weak symbol.
+ */
 EXTERN_C_BEGIN
 #        pragma weak dl_iterate_phdr
 EXTERN_C_END
@@ -508,20 +548,24 @@ EXTERN_C_END
 #      ifdef HAVE_DL_ITERATE_PHDR
 
 #        ifdef PT_GNU_RELRO
-/* Instead of registering PT_LOAD sections directly, we keep them       */
-/* in a temporary list, and filter them by excluding PT_GNU_RELRO       */
-/* segments.  Processing PT_GNU_RELRO sections with                     */
-/* GC_exclude_static_roots instead would be superficially cleaner.  But */
-/* it runs into trouble if a client registers an overlapping segment,   */
-/* which unfortunately seems quite possible.                            */
+/*
+ * Instead of registering `PT_LOAD` sections directly, we keep them
+ * in a temporary list, and filter them by excluding `PT_GNU_RELRO`
+ * segments.  Processing `PT_GNU_RELRO` sections with
+ * `GC_exclude_static_roots` instead would be superficially cleaner.
+ * But it runs into trouble if a client registers an overlapping segment,
+ * which unfortunately seems quite possible.
+ */
 
 #          define MAX_LOAD_SEGS MAX_ROOT_SETS
 
 static struct load_segment {
   ptr_t start;
   ptr_t end;
-  /* Room for a second segment if we remove a RELRO segment */
-  /* from the middle.                                       */
+  /*
+   * The room for the second segment if we remove a `PT_GNU_RELRO` segment
+   * from the middle.
+   */
   ptr_t start2;
   ptr_t end2;
 } load_segs[MAX_LOAD_SEGS];
@@ -538,10 +582,10 @@ GC_register_dynlib_callback(struct dl_phdr_info *info, size_t size, void *ptr)
   int i;
 
   GC_ASSERT(I_HOLD_LOCK());
-  /* Make sure struct dl_phdr_info is at least as big as we need.  */
+  /* Make sure `dl_phdr_info` structure is at least as big as we need. */
   if (size
       < offsetof(struct dl_phdr_info, dlpi_phnum) + sizeof(info->dlpi_phnum))
-    return 1; /* stop */
+    return 1; /*< stop */
 
   load_ptr = (ptr_t)info->dlpi_addr;
   p = info->dlpi_phdr;
@@ -554,8 +598,10 @@ GC_register_dynlib_callback(struct dl_phdr_info *info, size_t size, void *ptr)
 #        ifdef CHERI_PURECAP
       my_start = load_ptr + p->p_vaddr;
 #        else
-      /* Prevent "applying non-zero offset to null pointer" compiler    */
-      /* warning as load_ptr could be NULL.                             */
+      /*
+       * Prevent "applying nonzero offset to null pointer" compiler warning
+       * as `load_ptr` could be `NULL`.
+       */
       my_start = (ptr_t)((GC_uintptr_t)load_ptr + p->p_vaddr);
 #        endif
       my_end = my_start + p->p_memsz;
@@ -571,11 +617,12 @@ GC_register_dynlib_callback(struct dl_phdr_info *info, size_t size, void *ptr)
         continue;
 #        ifdef PT_GNU_RELRO
 #          if CPP_PTRSZ >= 64 && !defined(CHERI_PURECAP)
-      /* TODO: GC_push_all eventually does the correct          */
-      /* rounding to the next multiple of ALIGNMENT, so, most   */
-      /* probably, we should remove the corresponding assertion */
-      /* check in GC_add_roots_inner along with this code line. */
-      /* my_start pointer value may require aligning.           */
+      /*
+       * TODO: `GC_push_all` eventually does the correct rounding to the
+       * next multiple of `ALIGNMENT`, so, most probably, we should remove
+       * the corresponding assertion check in `GC_add_roots_inner` along
+       * with this code line.  `my_start` value may require aligning.
+       */
       my_start = PTR_ALIGN_DOWN(my_start, ALIGNMENT);
 #          endif
       if (n_load_segs >= MAX_LOAD_SEGS) {
@@ -603,10 +650,12 @@ GC_register_dynlib_callback(struct dl_phdr_info *info, size_t size, void *ptr)
   p = info->dlpi_phdr;
   for (i = 0; i < (int)info->dlpi_phnum; i++, p++) {
     if (p->p_type == PT_GNU_RELRO) {
-      /* This entry is known to be constant and will eventually be    */
-      /* remapped as read-only.  However, the address range covered   */
-      /* by this entry is typically a subset of a previously          */
-      /* encountered "LOAD" segment, so we need to exclude it.        */
+      /*
+       * This entry is known to be constant and will eventually be
+       * remapped as read-only.  However, the address range covered
+       * by this entry is typically a subset of a previously
+       * encountered `PT_LOAD` segment, so we need to exclude it.
+       */
       int j;
 
 #          ifdef CHERI_PURECAP
@@ -622,12 +671,14 @@ GC_register_dynlib_callback(struct dl_phdr_info *info, size_t size, void *ptr)
           } else {
             GC_ASSERT(
                 ADDR_GE(PTR_ALIGN_UP(load_segs[j].end, GC_page_size), my_end));
-            /* Remove from the existing load segment. */
+            /* Remove it from the existing load segment. */
             load_segs[j].end2 = load_segs[j].end;
             load_segs[j].end = my_start;
             load_segs[j].start2 = my_end;
-            /* Note that start2 may be greater than end2 because of   */
-            /* p->p_memsz value multiple of page size.                */
+            /*
+             * Note that `start2` may be greater than `end2` because of
+             * `p->p_memsz` value is multiple of page size.
+             */
           }
           break;
         }
@@ -635,14 +686,16 @@ GC_register_dynlib_callback(struct dl_phdr_info *info, size_t size, void *ptr)
           WARN("Failed to find PT_GNU_RELRO segment"
                " inside PT_LOAD region\n",
                0);
-        /* No warning reported in case of the callback is present   */
-        /* because most likely the segment has been excluded.       */
+        /*
+         * No warning reported in case of the callback is present because
+         * most likely the segment has been excluded.
+         */
       }
     }
   }
 #        endif
 
-  /* Signal that we were called.        */
+  /* Signal that we were called. */
   *(int *)ptr = 1;
   return 0;
 }
@@ -651,8 +704,10 @@ GC_INNER GC_bool
 GC_register_main_static_data(void)
 {
 #        if defined(DL_ITERATE_PHDR_STRONG) && !defined(CPPCHECK)
-  /* If dl_iterate_phdr is not a weak symbol then don't test against  */
-  /* zero (otherwise a compiler might issue a warning).               */
+  /*
+   * If `dl_iterate_phdr` is not a weak symbol, then do not test against
+   * zero (otherwise a compiler might issue a warning).
+   */
   return FALSE;
 #        else
   return 0 == COVERT_DATAFLOW(ADDR(dl_iterate_phdr));
@@ -660,7 +715,10 @@ GC_register_main_static_data(void)
 }
 #        define HAVE_REGISTER_MAIN_STATIC_DATA
 
-/* Return TRUE if we succeed, FALSE if dl_iterate_phdr wasn't there. */
+/*
+ * Return `TRUE` if we succeed; return `FALSE` if `dl_iterate_phdr` was
+ * not there.
+ */
 STATIC GC_bool
 GC_register_dynamic_libraries_dl_iterate_phdr(void)
 {
@@ -701,7 +759,7 @@ GC_register_dynamic_libraries_dl_iterate_phdr(void)
 #        ifdef DATASTART_USES_XGETDATASTART
     static ptr_t datastart_cached = MAKE_CPTR(GC_WORD_MAX);
 
-    /* Evaluate DATASTART only once.  */
+    /* Evaluate `DATASTART` only once. */
     if (ADDR(datastart_cached) == GC_WORD_MAX) {
       datastart_cached = DATASTART;
     }
@@ -712,7 +770,7 @@ GC_register_dynamic_libraries_dl_iterate_phdr(void)
 #        ifdef DATAEND_IS_FUNC
     {
       static ptr_t dataend_cached = 0;
-      /* Evaluate DATAEND only once. */
+      /* Evaluate `DATAEND` only once. */
       if (dataend_cached == 0) {
         dataend_cached = DATAEND;
       }
@@ -725,11 +783,13 @@ GC_register_dynamic_libraries_dl_iterate_phdr(void)
       ABORT_ARG2("Wrong DATASTART/END pair", ": %p .. %p", (void *)datastart,
                  (void *)dataend);
 
-    /* dl_iterate_phdr may forget the static data segment in  */
-    /* statically linked executables.                         */
+    /*
+     * `dl_iterate_phdr` may forget the static data segment in
+     * statically linked executables.
+     */
     GC_add_roots_inner(datastart, dataend, TRUE);
 #        ifdef GC_HAVE_DATAREGION2
-    /* Subtract one to check also for NULL without a compiler warning. */
+    /* Subtract one to check also for `NULL` without a compiler warning. */
     if (ADDR(DATASTART2) - 1U >= ADDR(DATAEND2)) {
       ABORT_ARG2("Wrong DATASTART/END2 pair", ": %p .. %p", (void *)DATASTART2,
                  (void *)DATAEND2);
@@ -775,8 +835,10 @@ GC_register_dynamic_libraries_dl_iterate_phdr(void)
 
 /* Dynamic loading code for Linux, Solaris or similar OS running ELF. */
 
-/* This does not necessarily work in all cases, e.g. with preloaded */
-/* dynamic libraries.                                               */
+/*
+ * This does not necessarily work in all cases, e.g. with preloaded
+ * dynamic libraries.
+ */
 
 EXTERN_C_BEGIN
 #    if defined(__GNUC__) && !defined(SOLARISDL)
@@ -791,25 +853,27 @@ GC_FirstDLOpenedLinkMap(void)
   static struct link_map *cachedResult = NULL;
 
 #    ifdef SUNOS53_SHARED_LIB
-  /* BTL: Avoid the Solaris 5.3 ld.so bug that _DYNAMIC is not being    */
-  /* setup properly in dynamically linked library file.  This means we  */
-  /* have to use its value in the set of original object files loaded   */
-  /* at the program startup.                                            */
+  /*
+   * BTL: Avoid the Solaris 5.3 `ld.so` bug that `_DYNAMIC` is not being
+   * setup properly in dynamically linked library file.  This means we
+   * have to use its value in the set of original object files loaded at
+   * the program startup.
+   */
   static ElfW(Dyn) *dynStructureAddr = NULL;
 
   if (NULL == dynStructureAddr) {
     void *startupSyms = dlopen(NULL, RTLD_LAZY);
 
     dynStructureAddr = (ElfW(Dyn) *)dlsym(startupSyms, "_DYNAMIC");
-    /* Note: dlclose() is not called intentionally. */
+    /* Note: `dlclose()` is not called intentionally. */
     if (NULL == dynStructureAddr) {
-      /* _DYNAMIC symbol is not resolved. */
+      /* `_DYNAMIC` symbol is not resolved. */
       return NULL;
     }
   }
 #    else
   if (0 == COVERT_DATAFLOW(ADDR(_DYNAMIC))) {
-    /* _DYNAMIC symbol is not resolved. */
+    /* `_DYNAMIC` symbol is not resolved. */
     return NULL;
   }
 #    endif
@@ -824,9 +888,11 @@ GC_FirstDLOpenedLinkMap(void)
     struct link_map *lm = NULL;
 
     if (!dlinfo(RTLD_SELF, GC_RTLD_DI_LINKMAP, &lm) && lm != NULL) {
-      /* Now lm points link_map object of libgc.  Since it    */
-      /* might not be the first dynamically linked object,    */
-      /* try to find it (object next to the main object).     */
+      /*
+       * Now `lm` points `link_map` object of the collector.
+       * Since it might not be the first dynamically linked object,
+       * try to find it (object next to the main object).
+       */
       while (lm->l_prev != NULL) {
         lm = lm->l_prev;
       }
@@ -841,15 +907,17 @@ GC_FirstDLOpenedLinkMap(void)
         const struct r_debug *rd
             = CAST_THRU_UINTPTR(struct r_debug *, dp->d_un.d_ptr);
 
-        /* d_ptr could be NULL if libs are linked statically. */
+        /* `d_ptr` could be `NULL` if libs are linked statically. */
         if (rd != NULL) {
           const struct link_map *lm = rd->r_map;
 
 #      if defined(CPPCHECK) && defined(LINK_MAP_R_DEBUG_DEFINED)
           GC_noop1((word)rd->r_version);
 #      endif
-          if (lm != NULL)
-            cachedResult = lm->l_next; /* might be NULL */
+          if (lm != NULL) {
+            cachedResult = lm->l_next;
+            /* Might be `NULL`. */
+          }
         }
         break;
       }
@@ -882,6 +950,10 @@ GC_register_dynamic_libraries(void)
 #    endif
     e = (ElfW(Ehdr) *)load_ptr;
     p = (ElfW(Phdr) *)(load_ptr + e->e_phoff);
+#    ifdef LINT2
+    /* Workaround tainted e->e_phnum usage as a loop boundary. */
+    GC_noop1_ptr((/* no const */ void *)&e->e_phnum);
+#    endif
     for (i = 0; i < (size_t)e->e_phnum; i++, p++) {
       ptr_t start;
 
@@ -920,18 +992,20 @@ GC_register_dynamic_libraries(void)
 #      define IRIX6
 #    endif
 
-/* We use /proc to track down all parts of the address space that are   */
-/* mapped by the process, and throw out regions we know we shouldn't    */
-/* worry about.  This may also work under other SVR4 variants.          */
 GC_INNER void
 GC_register_dynamic_libraries(void)
 {
+  /*
+   * We use `/proc` to track down all parts of the address space that
+   * are mapped by the process, and throw out regions we know we should
+   * not worry about.  This may also work under other SVR4 variants.
+   */
   static int fd = -1;
   static prmap_t *addr_map = 0;
-  /* Number of records currently in addr_map. */
+  /* Number of records currently in `addr_map`. */
   static int current_sz = 0;
   char buf[6 + 20 + 1];
-  /* Required size of addr_map.       */
+  /* Required size of `addr_map`. */
   int needed_sz = 0;
   int i;
   long flags;
@@ -957,7 +1031,7 @@ GC_register_dynamic_libraries(void)
   }
   if (needed_sz >= current_sz) {
     GC_scratch_recycle_no_gww(addr_map, (size_t)current_sz * sizeof(prmap_t));
-    /* Expansion, plus room for record 0.   */
+    /* Expansion, plus room for record 0. */
     current_sz = needed_sz * 2 + 1;
     addr_map
         = (prmap_t *)GC_scratch_alloc((size_t)current_sz * sizeof(prmap_t));
@@ -982,27 +1056,32 @@ GC_register_dynamic_libraries(void)
       goto irrelevant;
     if ((flags & (MA_READ | MA_WRITE)) != (MA_READ | MA_WRITE))
       goto irrelevant;
-    /* The latter test is empirically useless in very old Irix      */
-    /* versions.  Other than the main data and stack segments,      */
-    /* everything appears to be mapped readable, writable,          */
-    /* executable, and shared(!!).  This makes no sense to me. - HB */
+    /*
+     * The latter test is empirically useless in very old Irix versions.
+     * Other than the main data and stack segments, everything appears
+     * to be mapped readable, writable, executable, and shared(!!).
+     * Probably this makes no sense.
+     */
     start = (ptr_t)addr_map[i].pr_vaddr;
     if (GC_roots_present(start)
         || (ADDR(start) >= heap_start && ADDR(start) < heap_end))
       goto irrelevant;
 
     limit = start + addr_map[i].pr_size;
-    /* The following seemed to be necessary for very old versions   */
-    /* of Irix, but it has been reported to discard relevant        */
-    /* segments under Irix 6.5.                                     */
+    /*
+     * The following seemed to be necessary for very old versions of Irix,
+     * but it has been reported to discard relevant segments under Irix 6.5.
+     */
 #    ifndef IRIX6
     if (addr_map[i].pr_off == 0 && strncmp(start, ELFMAG, 4) == 0) {
-      /* Discard text segments, i.e. 0-offset mappings against    */
-      /* executable files which appear to have ELF headers.       */
+      /*
+       * Discard text segments, i.e. zero-offset mappings against
+       * executable files that appear to have ELF headers.
+       */
       caddr_t arg;
       int obj;
 #      define MAP_IRR_SZ 10
-      /* Known irrelevant map entries.    */
+      /* Known irrelevant map entries. */
       static ptr_t map_irr[MAP_IRR_SZ];
       static int n_irr = 0;
       struct stat buf;
@@ -1029,10 +1108,12 @@ GC_register_dynamic_libraries(void)
     GC_add_roots_inner(start, limit, TRUE);
   irrelevant:;
   }
-  /* Don't keep cached descriptor, for now.  Some kernels don't like us */
-  /* to keep a /proc file descriptor around during kill -9.             */
-  /* Otherwise, it should also require FD_CLOEXEC and proper handling   */
-  /* at fork (i.e. close because of the pid change).                    */
+  /*
+   * Do not keep cached descriptor, for now.  Some kernels do not like us
+   * to keep a `/proc` file descriptor around during `kill -9`.  Otherwise,
+   * it should also require `FD_CLOEXEC` and proper handling at process fork
+   * (i.e. close the file descriptor because of the `pid` change).
+   */
   if (close(fd) < 0)
     ABORT("Couldn't close /proc file");
   fd = -1;
@@ -1086,7 +1167,7 @@ GC_register_dynamic_libraries(void)
 
 #  ifdef DARWIN
 
-/* __private_extern__ hack required for pre-3.4 gcc versions.   */
+/* `__private_extern__` hack required for gcc-3.3 and earlier. */
 #    ifndef __private_extern__
 #      define __private_extern__ extern
 #      include <mach-o/dyld.h>
@@ -1110,33 +1191,37 @@ EXTERN_C_END
 #      include <mach-o/getsect.h>
 #    endif
 
-/* Writable sections generally available on Darwin.     */
+/* Writable sections generally available on Darwin. */
 STATIC const struct dyld_sections_s {
   const char *seg;
   const char *sect;
 } GC_dyld_sections[]
     = { { SEG_DATA, SECT_DATA },
-        /* Used by FSF GCC, but not by OS X system tools, so far.   */
+        /* Used by FSF gcc, but not by OS X system tools, so far. */
         { SEG_DATA, "__static_data" },
         { SEG_DATA, SECT_BSS },
         { SEG_DATA, SECT_COMMON },
-        /* FSF GCC - zero-sized object sections for targets         */
-        /* supporting section anchors.                              */
+        /*
+         * FSF gcc - zero-sized object sections for targets supporting
+         * section anchors.
+         */
         { SEG_DATA, "__zobj_data" },
         { SEG_DATA, "__zobj_bss" } };
 
-/* Additional writable sections:                                */
-/* GCC on Darwin constructs aligned sections "on demand", where */
-/* the alignment size is embedded in the section name.          */
-/* Furthermore, there are distinctions between sections         */
-/* containing private vs. public symbols.  It also constructs   */
-/* sections specifically for zero-sized objects, when the       */
-/* target supports section anchors.                             */
+/*
+ * Additional writable sections: gcc on Darwin constructs aligned sections
+ * "on demand", where the alignment size is embedded in the section name.
+ * Furthermore, there are distinctions between sections containing private
+ * vs. public symbols.  It also constructs sections specifically for
+ * zero-sized objects, when the target supports section anchors.
+ */
 STATIC const char *const GC_dyld_bss_prefixes[]
     = { "__bss", "__pu_bss", "__zo_bss", "__zo_pu_bss" };
 
-/* Currently, mach-o will allow up to the max of 2^15 alignment */
-/* in an object file.                                           */
+/*
+ * Currently, `mach-o` will allow up to the max of `2**15` alignment
+ * in an object file.
+ */
 #    ifndef L2_MAX_OFILE_ALIGNMENT
 #      define L2_MAX_OFILE_ALIGNMENT 15
 #    endif
@@ -1150,15 +1235,18 @@ GC_dyld_name_for_hdr(const struct GC_MACH_HEADER *phdr)
     if ((const struct GC_MACH_HEADER *)_dyld_get_image_header(i) == phdr)
       return _dyld_get_image_name(i);
   }
-  /* TODO: probably ABORT in this case? */
-  return NULL; /* not found */
+  /* TODO: Probably `ABORT()` in this case? */
+  return NULL; /*< not found */
 }
 
-/* getsectbynamefromheader is deprecated (first time in macOS 13.0),    */
-/* getsectiondata (introduced in macOS 10.7) is used instead if exists. */
-/* Define USE_GETSECTBYNAME to use the deprecated symbol, if needed.    */
-#    if !defined(USE_GETSECTBYNAME) \
-        && (MAC_OS_X_VERSION_MIN_REQUIRED < 1070 /*MAC_OS_X_VERSION_10_7*/)
+/*
+ * `getsectbynamefromheader` is deprecated (first time in macOS 13.0),
+ * `getsectiondata` (introduced in macOS 10.7) is used instead, if exists.
+ * Define `USE_GETSECTBYNAME` macro to use the deprecated symbol, if needed.
+ */
+#    if !defined(USE_GETSECTBYNAME)       \
+        && (MAC_OS_X_VERSION_MIN_REQUIRED \
+            < 1070 /* `MAC_OS_X_VERSION_10_7` */)
 #      define USE_GETSECTBYNAME
 #    endif
 
@@ -1193,11 +1281,11 @@ dyld_section_add_del(const struct GC_MACH_HEADER *phdr, intptr_t slide,
   finish = start + sec_size;
   if (is_add) {
     LOCK();
-    /* The user callback is invoked holding the allocator lock.   */
+    /* The user callback is invoked holding the allocator lock. */
     if (EXPECT(callback != 0, FALSE)
         && !callback(dlpi_name, start, (size_t)sec_size)) {
       UNLOCK();
-      return; /* skip section */
+      return; /*< skip section */
     }
     GC_add_roots_inner(start, finish, FALSE);
     UNLOCK();
@@ -1234,16 +1322,16 @@ dyld_image_add_del(const struct GC_MACH_HEADER *phdr, intptr_t slide,
                          is_add);
   }
 
-  /* Sections constructed on demand.    */
+  /* Sections constructed on demand. */
   for (j = 0; j < sizeof(GC_dyld_bss_prefixes) / sizeof(char *); j++) {
-    /* Our manufactured aligned BSS sections.   */
+    /* Our manufactured aligned BSS sections. */
     for (i = 0; i <= L2_MAX_OFILE_ALIGNMENT; i++) {
       char secnam[11 + 20 + 1];
 
       GC_snprintf_s_ld_s(secnam, sizeof(secnam), GC_dyld_bss_prefixes[j],
                          (long)i, "");
-      dyld_section_add_del(phdr, slide, dlpi_name, 0 /* callback */, SEG_DATA,
-                           secnam, is_add);
+      dyld_section_add_del(phdr, slide, dlpi_name, 0 /* `callback` */,
+                           SEG_DATA, secnam, is_add);
     }
   }
 
@@ -1264,25 +1352,31 @@ GC_dyld_image_add(const struct GC_MACH_HEADER *phdr, intptr_t slide)
 STATIC void
 GC_dyld_image_remove(const struct GC_MACH_HEADER *phdr, intptr_t slide)
 {
-  dyld_image_add_del(phdr, slide, 0 /* callback */, FALSE);
+  dyld_image_add_del(phdr, slide, 0 /* `callback` */, FALSE);
 }
 
 GC_INNER void
 GC_register_dynamic_libraries(void)
 {
-  /* Currently does nothing. The callbacks are setup by GC_init_dyld()
-  The dyld library takes it from there. */
+  /*
+   * Currently does nothing.  The callbacks are setup by `GC_init_dyld()`.
+   * The `dyld` library takes it from there.
+   */
 }
 
-/* The _dyld_* functions have an internal lock, so none of them can be  */
-/* called while the world is stopped without the risk of a deadlock.    */
-/* Because of this we MUST setup callbacks BEFORE we ever stop the      */
-/* world.  This should be called BEFORE any thread is created and       */
-/* WITHOUT the allocator lock held.                                     */
+/*
+ * The `_dyld_*` functions have an internal lock, so none of them can
+ * be called while the world is stopped without the risk of a deadlock.
+ * Because of this we must setup callbacks before we ever stop the world.
+ * This should be called before any thread is created and without the
+ * allocator lock held.
+ */
 
-/* _dyld_bind_fully_image_containing_address is deprecated, so use      */
-/* dlopen(0,RTLD_NOW) instead; define USE_DYLD_TO_BIND to override this */
-/* if needed.                                                           */
+/*
+ * `_dyld_bind_fully_image_containing_address` is deprecated, so use
+ * `dlopen(NULL, RTLD_NOW)` instead; define `USE_DYLD_TO_BIND` macro
+ * to override this, if needed.
+ */
 
 GC_INNER void
 GC_init_dyld(void)
@@ -1297,19 +1391,22 @@ GC_init_dyld(void)
   GC_log_printf("Registering dyld callbacks...\n");
 #    endif
 
-  /* Apple's Documentation:
-     When you call _dyld_register_func_for_add_image, the dynamic linker
-     runtime calls the specified callback (func) once for each of the images
-     that is currently loaded into the program. When a new image is added to
-     the program, your callback is called again with the mach_header for the
-     new image, and the virtual memory slide amount of the new image.
+  /*
+   * From Apple's documentation:
+   * When you call `_dyld_register_func_for_add_image`, the dynamic linker
+   * runtime calls the specified callback (func) once for each of the images
+   * that is currently loaded into the program.  When a new image is added to
+   * the program, your callback is invoked again with the `mach_header` for
+   * the new image, and the virtual memory slide amount of the new image.
+   *
+   * This *will* properly register already linked libraries and libraries
+   * linked in the future.
+   */
 
-     This WILL properly register already linked libraries and libraries
-     linked in the future.
-  */
-
-  /* Structure mach_header_64 has the same fields as mach_header except */
-  /* for the reserved one at the end, so these casts are OK.            */
+  /*
+   * `struct mach_header_64` has the same fields as `struct mach_header`
+   * except for the reserved one at the end, so these casts are OK.
+   */
   _dyld_register_func_for_add_image(
       (void (*)(const struct mach_header *, intptr_t))GC_dyld_image_add);
   _dyld_register_func_for_remove_image(
@@ -1319,17 +1416,21 @@ GC_init_dyld(void)
   initialized = TRUE;
 
 #    ifndef NO_DYLD_BIND_FULLY_IMAGE
-  if (GC_no_dls)
-    return; /* skip main data segment registration */
+  if (GC_no_dls) {
+    /* Skip main data segment registration. */
+    return;
+  }
 
-  /* When the environment variable is set, the dynamic linker binds   */
-  /* all undefined symbols the application needs at launch time.      */
-  /* This includes function symbols that are normally bound lazily at */
-  /* the time of their first invocation.                              */
+  /*
+   * When the environment variable is set, the dynamic linker binds
+   * all undefined symbols the application needs at launch time.
+   * This includes function symbols that are normally bound lazily at
+   * the time of their first invocation.
+   */
   if (GETENV("DYLD_BIND_AT_LAUNCH") != NULL) {
     return;
   }
-  /* Else we should bind manually.  */
+  /* Else we should bind manually. */
 #      ifdef DARWIN_DEBUG
   GC_log_printf("Forcing full bind of GC code...\n");
 #      endif
@@ -1346,7 +1447,7 @@ GC_init_dyld(void)
 #        endif
   }
 #      else
-  /* Note: '_dyld_bind_fully_image_containing_address' is deprecated. */
+  /* Note: `_dyld_bind_fully_image_containing_address` is deprecated. */
   if (!_dyld_bind_fully_image_containing_address((unsigned long *)GC_malloc))
     ABORT("_dyld_bind_fully_image_containing_address failed");
 #      endif
@@ -1356,7 +1457,7 @@ GC_init_dyld(void)
 GC_INNER GC_bool
 GC_register_main_static_data(void)
 {
-  /* Already done through dyld callbacks. */
+  /* Already done through `dyld` callbacks. */
   return FALSE;
 }
 #    define HAVE_REGISTER_MAIN_STATIC_DATA
@@ -1383,9 +1484,10 @@ GC_register_dynamic_libraries(void)
 GC_INNER GC_bool
 GC_register_main_static_data(void)
 {
-  /* On Haiku, the main application binary is also a "shared image" and */
-  /* will be reported in an image_info same as for dynamically-loaded   */
-  /* libraries.                                                         */
+  /*
+   * On Haiku, the main application binary is also a "shared image" and will
+   * be reported in an `image_info` same as for dynamically-loaded libraries.
+   */
   return FALSE;
 }
 #    define HAVE_REGISTER_MAIN_STATIC_DATA
@@ -1403,26 +1505,28 @@ EXTERN_C_END
 GC_INNER void
 GC_register_dynamic_libraries(void)
 {
-  /* Ordinal position in shared library search list.    */
+  /* Ordinal position in shared library search list. */
   int index = 1;
 
   GC_ASSERT(I_HOLD_LOCK());
   /* For each dynamic library loaded. */
   for (;;) {
-    /* Shared library info, see dl.h.        */
+    /* Shared library info, see platform `dl.h` file. */
     struct shl_descriptor *shl_desc;
-    /* Get info about next shared library.    */
+    /* Get info about next shared library. */
     int status = shl_get(index, &shl_desc);
 
     /* Check if this is the end of the list or if some error occurred. */
     if (status != 0) {
 #    ifdef THREADS
-      /* I've seen errno values of 0.  The man page is not clear   */
-      /* as to whether errno should get set on a -1 return.        */
+      /*
+       * I have seen `errno` values of 0.  The man page is not clear as
+       * to whether `errno` should get set when -1 is returned.
+       */
       break;
 #    else
       if (errno == EINVAL) {
-        /* Moved past end of shared library list.  Finish.  */
+        /* Moved past end of shared library list.  Finish. */
         break;
       } else {
         ABORT_ARG3("shl_get failed", ": status= %d, errcode= %d (%s)", status,
@@ -1443,8 +1547,10 @@ GC_register_dynamic_libraries(void)
     GC_log_printf("ref.count= %lu\n", shl_desc->ref_count);
 #    endif
 
-    /* Register shared library's data segment as a garbage collection */
-    /* root.                                                          */
+    /*
+     * Register shared library's data segment as a garbage collection
+     * root.
+     */
     GC_add_roots_inner((char *)shl_desc->dstart, (char *)shl_desc->dend, TRUE);
 
     index++;
@@ -1467,7 +1573,7 @@ GC_register_dynamic_libraries(void)
   ldr_process_t mypid;
 
   GC_ASSERT(I_HOLD_LOCK());
-  /* Obtain id of this process.       */
+  /* Obtain id of this process. */
   mypid = ldr_my_process();
 
   /* For each module. */
@@ -1481,26 +1587,28 @@ GC_register_dynamic_libraries(void)
     int status = ldr_next_module(mypid, &moduleid);
 
     if (moduleid == LDR_NULL_MODULE) {
-      /* No more modules.     */
+      /* No more modules. */
       break;
     }
 
-    /* Check status AFTER checking moduleid because       */
-    /* of a bug in the non-shared ldr_next_module stub.   */
+    /*
+     * Check status *after* checking `moduleid` because of a bug
+     * in the non-shared `ldr_next_module` stub.
+     */
     if (status != 0) {
       ABORT_ARG3("ldr_next_module failed", ": status= %d, errcode= %d (%s)",
                  status, errno, errno < sys_nerr ? sys_errlist[errno] : "");
     }
 
-    /* Get the module information.    */
+    /* Get the module information. */
     status = ldr_inq_module(mypid, moduleid, &moduleinfo, sizeof(moduleinfo),
                             &modulereturnsize);
     if (status != 0)
       ABORT("ldr_inq_module failed");
 
-    /* Is module for the main program (i.e. nonshared portion)?   */
+    /* Is module for the main program (i.e. nonshared portion)? */
     if ((moduleinfo.lmi_flags & LDR_MAIN) != 0) {
-      /* Skip the main module.        */
+      /* Skip the main module. */
       continue;
     }
 
@@ -1520,7 +1628,7 @@ GC_register_dynamic_libraries(void)
       if (status != 0)
         ABORT("ldr_inq_region failed");
 
-      /* Only process writable (data) regions.      */
+      /* Only process writable (data) regions. */
       if ((regioninfo.lri_prot & LDR_W) == 0)
         continue;
 
@@ -1534,7 +1642,7 @@ GC_register_dynamic_libraries(void)
       GC_log_printf("Region name: \"%s\"\n", regioninfo.lri_name);
 #    endif
 
-      /* Register region as a garbage collection root.      */
+      /* Register region as a garbage collection root. */
       GC_add_roots_inner((char *)regioninfo.lri_mapaddr,
                          (char *)regioninfo.lri_mapaddr + regioninfo.lri_size,
                          TRUE);
@@ -1550,7 +1658,6 @@ GC_register_dynamic_libraries(void)
 #endif
 
 #if !defined(HAVE_REGISTER_MAIN_STATIC_DATA) && defined(DYNAMIC_LOADING)
-/* Do we need to separately register the main static data segment? */
 GC_INNER GC_bool
 GC_register_main_static_data(void)
 {
@@ -1558,7 +1665,6 @@ GC_register_main_static_data(void)
 }
 #endif /* HAVE_REGISTER_MAIN_STATIC_DATA */
 
-/* Register a routine to filter dynamic library registration.  */
 GC_API void GC_CALL
 GC_register_has_static_roots_callback(GC_has_static_roots_func callback)
 {

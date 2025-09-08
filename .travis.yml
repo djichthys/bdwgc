@@ -13,17 +13,6 @@ jobs:
     env:
     - CONF_OPTIONS="--enable-cplusplus"
     - GCTEST_WITH_MPROTECT_VDB=true
-  - env:
-    - COVERITY_SCAN_BRANCH=1
-    addons:
-      coverity_scan:
-        project:
-          name: ivmai/bdwgc
-          version: 8.3.0
-        notification_email: ivmai@mail.ru
-        branch_pattern: master
-        build_command_prepend: "./configure --enable-cplusplus --disable-shared --enable-single-obj-compilation"
-        build_command: make -j check CFLAGS_EXTRA=-DLINT2
   - addons:
       apt:
         packages:
@@ -31,7 +20,7 @@ jobs:
     compiler: gcc
     env:
     - CONF_OPTIONS="--enable-gcov --enable-single-obj-compilation --enable-cplusplus --disable-shared --enable-gc-assertions --enable-valgrind-tracking"
-    - CFLAGS_EXTRA="-D USE_CUSTOM_SPECIFIC"
+    - CFLAGS_EXTRA="-fprofile-update=atomic -D USE_CUSTOM_SPECIFIC"
     - CC_FOR_CHECK=g++
     - MAKEFILE_TARGETS="all"
     - MAKEFILE_TARGETS_CHECK="check"
@@ -43,6 +32,7 @@ jobs:
   - addons:
       apt:
         packages:
+        - g++-multilib
         - gcc-multilib
     compiler: clang
     env:
@@ -71,7 +61,7 @@ jobs:
     - CPPCHECK_OUT_FILTER="Z"
   - compiler: clang
     env:
-    - CPPCHECK_ENABLE="-j4 --enable=all --disable=missingInclude,unusedFunction --force -U GC_PRIVATE_H -I libatomic_ops/src n*.c o*.c p*.c r*.c s*.c t*.c w*.c cord/*.c"
+    - CPPCHECK_ENABLE="-j4 --enable=all --disable=missingInclude,unusedFunction --force -U GC_PRIVATE_H -I libatomic_ops/src n*.c p*.c r*.c s*.c t*.c w*.c cord/*.c"
   - compiler: clang
     env:
     - CPPCHECK_ENABLE="-j4 --enable=all --disable=missingInclude,unusedFunction --force -I libatomic_ops/src *.cc cord/tests/*.c extra/m*.c extra/*.cpp tests/*.c tests/*.cc tools/*.c"
@@ -570,9 +560,14 @@ jobs:
     - CFLAGS_EXTRA="-fsanitize=address -O0"
     - CONF_OPTIONS="--enable-gc-assertions"
     - LDFLAGS="-fuse-ld=gold"
-  - compiler: clang
+  - addons:
+      apt:
+        packages:
+        - g++-multilib
+        - gcc-multilib
+    dist: xenial
     env:
-    - CFLAGS_EXTRA="-fsanitize=address -m32 -fno-omit-frame-pointer"
+    - CFLAGS_EXTRA="-fsanitize=address -m32 -O0"
     - CONF_OPTIONS="--disable-shared --enable-cplusplus"
     - NO_CLONE_LIBATOMIC_OPS=true
   - addons:
@@ -731,6 +726,18 @@ jobs:
     - LIBTOOL_VER=2.5.4
     - M4_VER=1.4.19
     - NO_CLONE_LIBATOMIC_OPS=true
+  - if: type != pull_request
+    addons:
+      coverity_scan:
+        project:
+          name: bdwgc/bdwgc
+          version: 8.3.0
+        notification_email: ivmai@mail.ru
+        branch_pattern: master
+        build_command_prepend: "./configure --enable-cplusplus --disable-shared --enable-single-obj-compilation"
+        build_command: make -j check CFLAGS_EXTRA=-DLINT2
+    env:
+    - COVERITY_SCAN_BRANCH=1
 
 before_install:
 - if [[ "$CPPCHECK_ENABLE" != "" ]]; then
@@ -841,11 +848,10 @@ script:
 
 after_success:
 - if [[ "$REPORT_COVERAGE" == true ]]; then
-    lcov --capture --base-directory . --directory . --output-file coverage.info;
-    lcov --remove coverage.info '/usr/*' 'cord/tests/*' 'libatomic_ops/*' 'tests/*' --output-file coverage.info;
-    lcov --list coverage.info;
-    coveralls-lcov --repo-token ${COVERALLS_TOKEN} coverage.info;
-    bash <(curl -s https://codecov.io/bash);
+    lcov --capture --base-directory . --directory . --output-file coverage.info &&
+    lcov --remove coverage.info '/usr/*' 'cord/tests/*' 'libatomic_ops/*' 'tests/*' --output-file coverage.info &&
+    lcov --list coverage.info &&
+    coveralls-lcov --repo-token=${COVERALLS_REPO_TOKEN} coverage.info;
   fi
 
 before_deploy:
@@ -861,5 +867,5 @@ deploy:
   file_glob: true
   on:
     condition: $MAKEFILE_TARGETS = distcheck
-    repo: ivmai/bdwgc
+    repo: bdwgc/bdwgc
     tags: true

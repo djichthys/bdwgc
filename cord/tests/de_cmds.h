@@ -14,25 +14,28 @@
 #ifndef DE_CMDS_H
 #define DE_CMDS_H
 
-#define UP 16     /* ^P */
-#define DOWN 14   /* ^N */
-#define LEFT 2    /* ^B */
-#define RIGHT 6   /* ^F */
-#define DEL 127   /* ^? */
-#define BS 8      /* ^H */
-#define UNDO 21   /* ^U */
-#define WRITE 23  /* ^W */
-#define QUIT 4    /* ^D */
-#define REPEAT 18 /* ^R */
-#define LOCATE 12 /* ^L */
-#define TOP 20    /* ^T */
+#define UP 16     /*< ^P */
+#define DOWN 14   /*< ^N */
+#define LEFT 2    /*< ^B */
+#define RIGHT 6   /*< ^F */
+#define DEL 127   /*< ^? */
+#define BS 8      /*< ^H */
+#define UNDO 21   /*< ^U */
+#define WRITE 23  /*< ^W */
+#define QUIT 4    /*< ^D */
+#define REPEAT 18 /*< ^R */
+#define LOCATE 12 /*< ^L */
+#define TOP 20    /*< ^T */
 
-/* Execute an editor command.           */
-/* The argument is a command character  */
-/* or one of the IDM_ commands.         */
+/*
+ * Execute an editor command.  The argument may be an integer greater
+ * 255 denoting a windows command, one of the control characters, or
+ * another ASCII character to be used as either a character to be inserted,
+ * a repeat count, or a search string, depending on the current state.
+ */
 void do_command(int);
 
-/* OS independent initialization.       */
+/* OS-independent initialization. */
 void generic_init(void);
 
 #endif /* DE_CMDS_H */

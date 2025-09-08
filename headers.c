@@ -17,19 +17,18 @@
 #include "private/gc_priv.h"
 
 #if defined(KEEP_BACK_PTRS) && defined(GC_ASSERTIONS)
-#  include "private/dbg_mlc.h" /* for NOT_MARKED */
+#  include "private/dbg_mlc.h" /*< for `NOT_MARKED` */
 #endif
 
 /*
  * This implements:
- * 1. allocation of heap block headers
- * 2. A map from addresses to heap block addresses to heap block headers
+ *   1. Allocation of heap block headers;
+ *   2. A map from addresses to heap block addresses to heap block headers.
  *
- * Access speed is crucial.  We implement an index structure based on a 2
- * level tree.
+ * Access speed is crucial.  We implement an index structure based on
+ * a two-level tree.
  */
 
-/* A non-macro version of header location routine.      */
 GC_INNER hdr *
 GC_find_header(const void *h)
 {
@@ -42,13 +41,6 @@ GC_find_header(const void *h)
 #endif
 }
 
-/* Handle a header cache miss.  Returns a pointer to the        */
-/* header corresponding to p, if p can possibly be a valid      */
-/* object pointer, and 0 otherwise.                             */
-/* GUARANTEED to return 0 for a pointer past the first page     */
-/* of an object unless both GC_all_interior_pointers is set     */
-/* and p is in fact a valid object pointer.                     */
-/* Never returns a pointer to a free hblk.                      */
 GC_INNER hdr *
 #ifdef PRINT_BLACK_LIST
 GC_header_cache_miss(ptr_t p, hdr_cache_entry *hce, ptr_t source)
@@ -63,24 +55,26 @@ GC_header_cache_miss(ptr_t p, hdr_cache_entry *hce)
   if (IS_FORWARDING_ADDR_OR_NIL(hhdr)) {
     if (GC_all_interior_pointers) {
       if (hhdr != NULL) {
-        /* Pointer to near the start of the large object.       */
+        /* Pointer to near the start of the large object. */
         ptr_t current = (ptr_t)GC_find_starting_hblk(HBLKPTR(p), &hhdr);
 
         if (hhdr->hb_flags & IGNORE_OFF_PAGE)
           return 0;
         if (HBLK_IS_FREE(hhdr) || p - current >= (GC_signed_word)hhdr->hb_sz) {
           GC_ADD_TO_BLACK_LIST_NORMAL(p, source);
-          /* The pointer is past the end of the block.        */
+          /* The pointer is past the end of the block. */
           return 0;
         }
       } else {
         GC_ADD_TO_BLACK_LIST_NORMAL(p, source);
-        /* And return zero: */
+        /* And return `NULL`. */
       }
       GC_ASSERT(NULL == hhdr || !HBLK_IS_FREE(hhdr));
-      /* Pointers past the first page are probably too rare to add them */
-      /* to the cache.  We do not.  And correctness relies on the fact  */
-      /* that we do not.                                                */
+      /*
+       * Pointers past the first page are probably too rare to add them to
+       * the cache.  We do not.  And correctness relies on the fact that
+       * we do not.
+       */
       return hhdr;
     } else {
       if (NULL == hhdr) {
@@ -100,8 +94,10 @@ GC_header_cache_miss(ptr_t p, hdr_cache_entry *hce)
   }
 }
 
-/* Routines to dynamically allocate collector data structures that will */
-/* never be freed.                                                      */
+/*
+ * Routines to dynamically allocate collector data structures that will
+ * never be freed.
+ */
 
 GC_INNER ptr_t
 GC_scratch_alloc(size_t bytes)
@@ -127,18 +123,19 @@ GC_scratch_alloc(size_t bytes)
 #if defined(KEEP_BACK_PTRS) && (GC_GRANULE_BYTES < 0x10)
         GC_ASSERT(ADDR(result) > (word)NOT_MARKED);
 #endif
-        /* No update of scratch free area pointer; get memory     */
-        /* directly.                                              */
+        /* No update of scratch free area pointer; get memory directly. */
 #ifdef USE_SCRATCH_LAST_END_PTR
-        /* Update end point of last obtained area (needed only  */
-        /* by GC_register_dynamic_libraries for some targets).  */
+        /*
+         * Update end point of last obtained area (needed only by
+         * `GC_register_dynamic_libraries` for some targets).
+         */
         GC_scratch_last_end_addr = ADDR(result) + bytes;
 #endif
       }
       return result;
     }
 
-    /* This is rounded up for a safety reason.      */
+    /* This is rounded up for a safety reason. */
     bytes_to_get = ROUNDUP_PAGESIZE_IF_MMAP(MINHINCR * HBLKSIZE);
 
     result = GC_os_get_mem(bytes_to_get);
@@ -156,8 +153,8 @@ GC_scratch_alloc(size_t bytes)
       return result;
     }
 
-    /* TODO: some amount of unallocated space may remain unused forever */
-    /* Update scratch area pointers and retry.      */
+    /* TODO: Some amount of unallocated space may remain unused forever. */
+    /* Update scratch area pointers and retry. */
     GC_scratch_free_ptr = result;
     GC_scratch_end_addr = ADDR(GC_scratch_free_ptr) + bytes_to_get;
 #ifdef USE_SCRATCH_LAST_END_PTR
@@ -166,7 +163,7 @@ GC_scratch_alloc(size_t bytes)
   }
 }
 
-/* Return an uninitialized header.      */
+/* Return an uninitialized header. */
 static hdr *
 alloc_hdr(void)
 {
@@ -213,8 +210,10 @@ GC_init_headers(void)
   }
 }
 
-/* Make sure that there is a bottom level index block for address addr. */
-/* Return FALSE on failure.                                             */
+/*
+ * Make sure that there is a bottom-level index block for address `addr`.
+ * Returns `FALSE` on failure.
+ */
 static GC_bool
 get_index(word addr)
 {
@@ -222,7 +221,7 @@ get_index(word addr)
   bottom_index *r;
   bottom_index *p;
   bottom_index **prev;
-  bottom_index *pi; /* old_p */
+  bottom_index *pi; /*< `old_p` */
   word i;
 
   GC_ASSERT(I_HOLD_LOCK());
@@ -247,9 +246,10 @@ get_index(word addr)
   r->hash_link = pi;
 #endif
 
-  /* Add it to the list of bottom indices.    */
-  prev = &GC_all_bottom_indices; /* pointer to p */
-  pi = NULL;                     /* bottom_index preceding p */
+  /* Add it to the list of bottom indices. */
+  prev = &GC_all_bottom_indices; /*< pointer to `p` */
+
+  pi = NULL; /*< `bottom_index` preceding `p` */
   while ((p = *prev) != 0 && p->key < hi) {
     pi = p;
     prev = &p->asc_link;
@@ -295,7 +295,7 @@ GC_install_counts(struct hblk *h, size_t sz /* bytes */)
   for (hbp = h; ADDR_LT((ptr_t)hbp, (ptr_t)h + sz); hbp += BOTTOM_SZ) {
     if (!get_index(ADDR(hbp)))
       return FALSE;
-    /* Is overflow of hbp expected? */
+    /* Is overflow of `hbp` expected? */
     if (ADDR(hbp) > GC_WORD_MAX - (word)BOTTOM_SZ * HBLKSIZE)
       break;
   }

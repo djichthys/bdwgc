@@ -12,10 +12,11 @@
  */
 
 /*
- * The Windows specific part of de.
- * This started as the generic Windows application template
- * but significant parts didn't survive to the final version.
+ * The Windows-specific part of `de`.  This has been started as the generic
+ * Windows application template but its significant parts did not survive
+ * to the final version.
  */
+
 #if defined(__CYGWIN__) || defined(__MINGW32__)                 \
     || (defined(__NT__) && defined(__386__)) || defined(_WIN32) \
     || defined(WIN32)
@@ -38,7 +39,7 @@ int COLS = 0;
 
 #  define szAppName TEXT("DE")
 
-HWND hwnd;
+static HWND hwnd;
 
 void
 de_error(const char *s)
@@ -99,14 +100,13 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR command_line,
         = CORD_to_char_star(CORD_substr(command_line, 0, p - command_line));
   }
 
-  hwnd = CreateWindow(szAppName, TEXT("Demonstration Editor"),
-                      WS_OVERLAPPEDWINDOW | WS_CAPTION, /* Window style */
-                      CW_USEDEFAULT, 0,                 /* default pos. */
-                      CW_USEDEFAULT, 0, /* default width, height */
-                      NULL,             /* No parent */
-                      NULL,             /* Window class menu */
-                      hInstance, NULL);
-  if (hwnd == NULL) {
+  hwnd = CreateWindow(
+      szAppName, TEXT("Demonstration Editor") /* `lpWindowName` */,
+      WS_OVERLAPPEDWINDOW | WS_CAPTION /* `dwStyle` */,
+      CW_USEDEFAULT /* `x` */, 0 /* `y` */, CW_USEDEFAULT /* `nWidth` */,
+      0 /* `nHeight` */, NULL /* `hWndParent` */, NULL /* `hMenu` */,
+      hInstance, NULL /* `lpParam` */);
+  if (NULL == hwnd) {
     de_error("CreateWindow error");
     return 0;
   }
@@ -124,7 +124,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR command_line,
   return (int)msg.wParam;
 }
 
-/* Return the argument with all control characters replaced by blanks.  */
+/* Return the argument with all control characters replaced by blanks. */
 static char *
 plain_chars(const char *text, size_t len)
 {
@@ -144,8 +144,10 @@ plain_chars(const char *text, size_t len)
   return result;
 }
 
-/* Return the argument with all non-control-characters replaced by      */
-/* blank, and all control characters c replaced by c + 64.              */
+/*
+ * Return the argument with all non-control-characters replaced by blank,
+ * and all control characters `c` replaced by `c + 64`.
+ */
 static char *
 control_chars(const char *text, size_t len)
 {
@@ -165,8 +167,8 @@ control_chars(const char *text, size_t len)
   return result;
 }
 
-int char_width;
-int char_height;
+static int char_width;
+static int char_height;
 
 static void
 get_line_rect(int line_arg, int win_width, RECT *rectp)
@@ -177,11 +179,11 @@ get_line_rect(int line_arg, int win_width, RECT *rectp)
   rectp->right = win_width;
 }
 
-/* A flag whether the caret is currently visible.   */
-int caret_visible = 0;
+/* A flag whether the caret is currently visible. */
+static int caret_visible = 0;
 
-/* A flag whether the screen has been painted at least once.    */
-int screen_was_painted = 0;
+/* A flag whether the screen has been painted at least once. */
+static int screen_was_painted = 0;
 
 static void update_cursor(void);
 
@@ -260,8 +262,8 @@ WndProc(HWND hwnd_arg, UINT message, WPARAM wParam, LPARAM lParam)
 
   case WM_LBUTTONUP:
     {
-      unsigned xpos = LOWORD(lParam); /* from left */
-      unsigned ypos = HIWORD(lParam); /* from top */
+      unsigned xpos = LOWORD(lParam); /*< from left */
+      unsigned ypos = HIWORD(lParam); /*< from top */
 
       set_position(xpos / (unsigned)char_width, ypos / (unsigned)char_height);
     }
@@ -343,8 +345,8 @@ WndProc(HWND hwnd_arg, UINT message, WPARAM wParam, LPARAM lParam)
   return DefWindowProc(hwnd_arg, message, wParam, lParam);
 }
 
-int last_col;
-int last_line;
+static int last_col;
+static int last_line;
 
 void
 move_cursor(int c, int l)
@@ -369,8 +371,10 @@ invalidate_line(int i)
   RECT line_r;
 
   if (!screen_was_painted) {
-    /* Invalidating a rectangle before painting seems result in a   */
-    /* major performance problem.                                   */
+    /*
+     * Invalidating a rectangle before painting seems result in a major
+     * performance problem.
+     */
     return;
   }
   get_line_rect(i, COLS * char_width, &line_r);
@@ -379,8 +383,10 @@ invalidate_line(int i)
 
 #else
 
-/* ANSI C doesn't allow translation units to be empty.        */
-/* So we guarantee this one is nonempty.                      */
+/*
+ * ANSI C does not allow translation units to be empty.
+ * So we guarantee this one is nonempty.
+ */
 extern int GC_quiet;
 
 #endif /* !WIN32 */

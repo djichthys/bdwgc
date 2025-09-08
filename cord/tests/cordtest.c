@@ -19,9 +19,11 @@
 #include "gc.h"
 #include "gc/cord.h"
 
-/* This is a very incomplete test of the cord package.  It knows about  */
-/* a few internals of the package (e.g. when C strings are returned)    */
-/* that real clients shouldn't rely on.                                 */
+/*
+ * This is a very incomplete test of the cord package.  It knows about
+ * a few internals of the package (e.g. when C strings are returned) that
+ * real clients should not rely on.
+ */
 
 #define ABORT(string)                        \
   {                                          \
@@ -284,7 +286,7 @@ test_cords_f2(CORD w, CORD x, CORD y)
 static void
 test_extras(void)
 {
-#define FNAME1 "cordtst1.tmp" /* short name (8+3) for portability */
+#define FNAME1 "cordtst1.tmp" /*< short name (8+3) for portability */
 #define FNAME2 "cordtst2.tmp"
   int i;
   CORD y = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -340,8 +342,8 @@ test_extras(void)
   w = CORD_from_file(f2);
   test_cords_f2(w, x, y);
 
-  /* Note: f1a, f1b, f2 handles are closed lazily by CORD library.    */
-  /* TODO: Propose and use CORD_fclose. */
+  /* Note: `f1a`, `f1b`, `f2` handles are closed lazily by `cord` library. */
+  /* TODO: Propose and use `CORD_fclose`. */
   *(CORD volatile *)&w = CORD_EMPTY;
   *(CORD volatile *)&z = CORD_EMPTY;
   GC_gcollect();
@@ -350,8 +352,10 @@ test_extras(void)
   /* Of course, this does not guarantee the files are closed. */
 #endif
   if (remove(FNAME1) != 0) {
-    /* On some systems, e.g. OS2, this may fail if f1 is still open. */
-    /* But we cannot call fclose as it might lead to double close.   */
+    /*
+     * On some systems, e.g. OS/2, this may fail if `f1` is still open.
+     * But we cannot call `fclose` as it might lead to double close.
+     */
     fprintf(stderr, "WARNING: remove failed: " FNAME1 "\n");
   }
 }
@@ -381,11 +385,11 @@ wrap_vfprintf(FILE *f, CORD format, ...)
 }
 
 #if defined(__DJGPP__) || defined(__DMC__) || defined(__STRICT_ANSI__)
-/* snprintf is missing in DJGPP (v2.0.3) */
+/* `snprintf` is missing in DJGPP (v2.0.3). */
 #else
 #  if defined(_MSC_VER)
 #    if defined(_WIN32_WCE)
-/* _snprintf is deprecated in WinCE */
+/* `_snprintf` is deprecated in WinCE. */
 #      define GC_SNPRINTF StringCchPrintfA
 #    else
 #      define GC_SNPRINTF _snprintf
@@ -436,14 +440,17 @@ test_printf(void)
     ABORT("CORD_sprintf goofed 5");
 
 #ifdef GC_SNPRINTF
-  /* Check whether "%zu" specifier is supported; pass the format  */
-  /* string via a variable to avoid a compiler warning if not.    */
+  /*
+   * Check whether "%zu" specifier is supported; pass the format string via
+   * a variable to avoid a compiler warning if not.
+   */
   res = GC_SNPRINTF(result2, sizeof(result2), zu_format, (size_t)0);
 #else
   res = sprintf(result2, zu_format, (size_t)0);
 #endif
   result2[sizeof(result2) - 1] = '\0';
-  if (res == 1) /* is "%z" supported by printf? */ {
+  /* Is "%z" supported by `printf`? */
+  if (res == 1) {
     if (CORD_sprintf(&result, "%zu %zd 0x%0zx", (size_t)123, (size_t)4567,
                      (size_t)0x4abc)
         != 15)
@@ -454,7 +461,7 @@ test_printf(void)
     (void)CORD_printf("printf lacks support of 'z' modifier\n");
   }
 
-  /* TODO: Better test CORD_[v][f]printf.     */
+  /* TODO: Better test CORD_[v][f]printf. */
   (void)CORD_printf(CORD_EMPTY);
   (void)wrap_vfprintf(stdout, CORD_EMPTY);
   (void)wrap_vprintf(CORD_EMPTY);
@@ -469,13 +476,13 @@ main(void)
 #endif
   if (GC_get_find_leak())
     printf("This test program is not designed for leak detection mode\n");
-  CORD_set_oom_fn(CORD_get_oom_fn()); /* just to test these are existing */
+  CORD_set_oom_fn(CORD_get_oom_fn()); /*< just to test these are existing */
 
   test_basics();
   test_extras();
   test_printf();
 
-  GC_gcollect(); /* to close f2 before the file removal */
+  GC_gcollect(); /*< to close `f2` before the file removal */
   if (remove(FNAME2) != 0) {
     fprintf(stderr, "WARNING: remove failed: " FNAME2 "\n");
   }
