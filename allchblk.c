@@ -1202,7 +1202,8 @@ GC_freehblk(struct hblk *hbp)
   /* Coalesce with successor, if possible. */
   if (nexthdr != NULL && HBLK_IS_FREE(nexthdr)
       && IS_MAPPED(nexthdr)
-#ifdef CHERI_PURECAP
+//#ifdef CHERI_PURECAP
+#if defined(CHERI_PURECAP) 
       /* FIXME: Coalesce with super-capability. */
       /*
        * Bounds of capability should span the entire coalesced memory;
@@ -1210,6 +1211,9 @@ GC_freehblk(struct hblk *hbp)
        * imprecision of original capability obtained from system memory.
        */
       && CAPABILITY_COVERS_RANGE(hbp, ADDR(next), ADDR(next) + nexthdr->hb_sz)
+#endif
+#if defined(STOP_COALESCING)
+      && CHECK_COALESCING(hbp, ADDR(next), ADDR(next) + nexthdr->hb_sz)
 #endif
       && !BLOCKS_MERGE_OVERFLOW(hhdr, nexthdr)) {
     GC_remove_from_fl(nexthdr);
@@ -1224,6 +1228,9 @@ GC_freehblk(struct hblk *hbp)
 #ifdef CHERI_PURECAP
         /* FIXME: Coalesce with super-capability. */
         && cheri_base_get(hbp) <= ADDR(prev)
+#endif
+#ifdef STOP_COALESCING  
+        && (ADDR(hbp) & 0x10000) <= ADDR(prev)
 #endif
         && !BLOCKS_MERGE_OVERFLOW(prevhdr, hhdr)) {
       GC_remove_from_fl(prevhdr);

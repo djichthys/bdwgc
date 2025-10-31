@@ -95,6 +95,7 @@ option(enable_emscripten_asyncify "Use Emscripten asyncify feature" OFF)
 option(install_headers "Install header and pkg-config metadata files" ON)
 option(with_libatomic_ops "Use an external libatomic_ops" OFF)
 option(without_libatomic_ops "Use atomic_ops.h in libatomic_ops/src" OFF)
+option(without_coalescing "Use atomic_ops.h in libatomic_ops/src" OFF)
 
 # Override the default build type to `RelWithDebInfo` (this instructs `cmake`
 # to pass `-O2 -g -DNDEBUG` options to the compiler by default).
@@ -451,6 +452,10 @@ if (enable_single_obj_compilation OR (BUILD_SHARED_LIBS AND NOT disable_single_o
     add_definitions("-DGC_PTHREAD_START_STANDALONE")
     set(SRC ${SRC} pthread_start.c)
   endif()
+endif()
+
+if (without_coalescing)
+  add_definitions("-DSTOP_COALESCING")
 endif()
 
 # Add implementation of `backtrace` and `backtrace_symbols`.

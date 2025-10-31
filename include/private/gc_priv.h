@@ -2606,6 +2606,9 @@ ptr_t GC_save_regs_in_stack(void);
             != 0)
 #else
 #  define LOAD_PTR_OR_CONTINUE(v, p) (void)(v = *(ptr_t *)(p))
+#  define CHECK_COALESCING(cap, b_addr, e_addr) \
+    (((ADDR(cap)) & 0x10000) <= (b_addr)                   \
+     && (((ADDR(cap)) & 0x10000) + (((ADDR(cap)) & 0x10000) + 0x10000)) >= (e_addr))
 #endif /* !CHERI_PURECAP */
 
 #ifdef CHERI_PURECAP
