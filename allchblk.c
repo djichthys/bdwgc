@@ -1214,6 +1214,7 @@ GC_freehblk(struct hblk *hbp)
 #endif
 #if defined(STOP_COALESCING)
       && CHECK_COALESCING(hbp, ADDR(next), ADDR(next) + nexthdr->hb_sz)
+      #error dont compile
 #endif
       && !BLOCKS_MERGE_OVERFLOW(hhdr, nexthdr)) {
     GC_remove_from_fl(nexthdr);
