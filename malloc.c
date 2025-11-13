@@ -120,6 +120,10 @@ GC_alloc_large_and_clear(size_t lb_adjusted, int kind, unsigned flags)
     /* Clear the whole block, in case of `GC_realloc` call. */
     BZERO(result, HBLKSIZE * OBJ_SZ_TO_BLOCKS(lb_adjusted));
   }
+  #if defined(CHERI_PURECAP)
+  result = cheri_bounds_set(result, lb_adjusted);
+  #endif
+
   return result;
 }
 
@@ -222,6 +226,10 @@ GC_generic_malloc_inner_small(size_t lb, int kind)
   }
   *opp = obj_link(op);
   obj_link(op) = NULL;
+  #if defined(CHERI_PURECAP)
+  size_t upper_bound = GRANULES_TO_BYTES((word)lg);
+  op = cheri_bounds_set(op, upper_bound);
+  #endif
   GC_bytes_allocd += GRANULES_TO_BYTES((word)lg);
   return op;
 }
@@ -385,6 +393,9 @@ GC_malloc_kind_aligned_global(size_t lb, int kind, size_t align_m1)
       if (kind != PTRFREE)
         obj_link(op) = NULL;
       GC_bytes_allocd += GRANULES_TO_BYTES((word)lg);
+      #if defined(CHERI_PURECAP)
+      op = cheri_bounds_set(op, GRANULES_TO_BYTES((word)lg));
+      #endif
       UNLOCK();
       GC_ASSERT((ADDR(op) & align_m1) == 0);
       return op;
